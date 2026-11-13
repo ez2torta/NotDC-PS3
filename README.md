@@ -8,6 +8,10 @@ with the open-source [PSL1GHT](https://github.com/ps3dev/PSL1GHT) SDK.
 NotDC is work in progress. See
 [Game compatibility](#game-compatibility).
 
+> **NotDC AW is a fork of NotDC-PS3.** All of the Dreamcast emulation underneath (SH4 JIT, PVR2 on the RSX, AICA, the
+> PS3 port) is the work of the NotDC-PS3 authors and of the projects listed in [Credits](#credits). NotDC AW only adds
+> Atomiswave support and a simpler interface on top of it. Please credit them, not this fork, for the emulator.
+>
 > **NotDC AW test build.** This tree builds and installs as **NotDC AW** (`NOTDCAW01`). It keeps its data in
 > `/dev_hdd0/data/NotDC-AW/`, so it does not overwrite the settings, logs, cheats or VMU files of a NotDC install.
 > The KOF XI Atomiswave plan is in [PLAN-KOFXI-AW.md](PLAN-KOFXI-AW.md).
@@ -198,7 +202,13 @@ NotDC-PS3 is an AI-assisted project. The emulator itself was tested on real PS3 
 
 ## Credits
 
-- [Flycast](https://github.com/flyinghead/flycast)
+NotDC AW is built on **NotDC-PS3**, a Dreamcast emulator for the PS3, and none of it would exist without the people
+behind it:
+
+- **NotDC-PS3** (the emulator this fork is based on): Matt, who wrote most of it (the git history of this repository
+  carries their commits), and Damián Parrino. The NotDC AW changes (Atomiswave mode, `dc/aw/`, `ps3/ps3_aw*`, the
+  arcade menus) were added on top of their work by Paulo Sandoval.
+- [Flycast](https://github.com/flyinghead/flycast): the reference for Atomiswave behaviour (cartridge, board, flash, maple pad).
 - [skmp](https://github.com/skmp): nullDC, Reicast and Minicast, as well as providing the required documentation to get the emulation in the state it is today.
 - [BenoitAdam](https://github.com/BenoitAdam/nullDC4Wii): the nullDC4Wii port, which NotDC started from.
 

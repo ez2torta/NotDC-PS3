@@ -1567,6 +1567,7 @@ static void aw_scan_games()
 	}
 	for (int i = 0; i < s_aw_count; i++)
 		printf("[awui] game %d: '%s' %s\n", i, s_aw_games[i].title, s_aw_games[i].path);
+	printf("[credits] %s\n", aw_credit_line());
 	printf("[menu] %d Atomiswave game(s), %d device(s), pads %d\n", s_aw_count, s_dev_count, pad_count());
 }
 
@@ -1634,6 +1635,7 @@ static void aw_home_draw()
 	char cut[256];
 
 	draw_header("NotDC AW", "ATOMISWAVE");
+	ps3m_row(15, false, true, aw_credit_line(), NULL);
 	if (s_aw_count == 0)
 	{
 		draw_row(0, false, COL_TEXT, "No Atomiswave game found.", NULL);

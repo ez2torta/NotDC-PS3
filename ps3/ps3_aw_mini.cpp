@@ -14,6 +14,11 @@ static const char* const k_help[6] = {
 	"Stop the game and go back to the game list.",
 };
 
+const char* aw_credit_line()
+{
+	return "Based on NotDC-PS3 by Matt. Thanks: nullDC4Wii, skmp, Flycast.";
+}
+
 static int s_row;
 
 void aw_mini_open() { s_row = 0; }
