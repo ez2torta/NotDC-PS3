@@ -1055,8 +1055,6 @@ static Option s_controls[] = {
 
 // Built-in Atomiswave toggles. They apply from the next vblank and persist in [ps3].
 static Option s_aw[] = {
-	{ "Free Play",   &g_aw_freeplay,    OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
-	  "QUICK FREE flag: lets the game continue without a coin in some modes. Live.", 0, 1 },
 	{ "All Bosses",  &g_aw_all_bosses,  OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
 	  "Unlocks PS GAI, HAYATE, ADELHIDE, SILBER, JAZU, SHION and MAGAKI. Live.", 0, 1 },
 	{ "Same Chars",  &g_aw_same_chars,  OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
@@ -1074,6 +1072,7 @@ struct Page
 
 static Page s_opt_pages[] = {
 	{ "EMULATION",     s_emu,   (int)(sizeof(s_emu) / sizeof(s_emu[0])) },
+	{ "ARCADE",        s_aw,    (int)(sizeof(s_aw) / sizeof(s_aw[0])) },
 	{ "AUDIO",         s_audio, (int)(sizeof(s_audio) / sizeof(s_audio[0])) },
 	{ "VIDEO / DEBUG", s_video, (int)(sizeof(s_video) / sizeof(s_video[0])) },
 	{ "JIT SPEED",     s_jit,   (int)(sizeof(s_jit) / sizeof(s_jit[0])) },
@@ -1089,7 +1088,6 @@ static Page s_opt_pages[] = {
 	{ "MAPLE / VMU",   s_maple, (int)(sizeof(s_maple) / sizeof(s_maple[0])) },
 	{ "SH4 / SYSTEM",  s_sys,   (int)(sizeof(s_sys) / sizeof(s_sys[0])) },
 	{ "NETWORK",       s_net,   (int)(sizeof(s_net) / sizeof(s_net[0])) },
-	{ "ARCADE",        s_aw,    (int)(sizeof(s_aw) / sizeof(s_aw[0])) },
 };
 #define OPT_PAGE_COUNT   ((int)(sizeof(s_opt_pages) / sizeof(s_opt_pages[0])))
 #define CONTROLS_ROWS    ((int)(sizeof(s_controls) / sizeof(s_controls[0])))
@@ -1100,11 +1098,25 @@ static bool row_shown(const Option* o)
 	return g_advanced_preset || o->basic;
 }
 
+// An Atomiswave game is picked or running: the Dreamcast-only pages hide until Advanced Mode is on.
+static bool aw_ui()
+{
+	return aw_active() || aw_pending() || aw_descriptor_path(selectedFilePath);
+}
+
+static bool page_dc_only(int p)
+{
+	const Option* r = s_opt_pages[p].rows;
+	return r == s_flash || r == s_maple || r == s_net;
+}
+
 // The shown rows of page p; pos gets the place of row sel among them (0 when sel is hidden).
 static int page_rows(int p, int sel, int* rows, int* pos)
 {
 	int n = 0;
 	*pos = 0;
+	if (!g_advanced_preset && aw_ui() && page_dc_only(p))
+		return 0;
 	for (int i = 0; i < s_opt_pages[p].count && n < MAX_PAGE_ROWS; i++)
 		if (row_shown(&s_opt_pages[p].rows[i]))
 		{
@@ -1594,6 +1606,10 @@ static Screen aw_home_input(u32 pressed)
 	else if (pressed & MB_START)
 	{
 		aw_home_pick();
+		for (int pg = 0; pg < OPT_PAGE_COUNT; pg++)
+			if (strcmp(s_opt_pages[pg].title, "ARCADE") == 0)
+				s_opt_page = pg;
+		s_opt_row = 0;
 		return SCR_OPTIONS;
 	}
 	return SCR_AWHOME;
@@ -1673,7 +1689,7 @@ static Screen options_input(u32 pressed)
 	else if (pressed & MB_R1)
 		page_step(+1);
 	else if (pressed & MB_CROSS)
-		return SCR_CONTROLS;
+		return aw_ui() ? SCR_LAUNCH : SCR_CONTROLS;
 	else if (pressed & MB_CIRCLE)
 	{
 		ps3_game_cfg_close();
@@ -1712,7 +1728,8 @@ static void options_draw()
 {
 	options_rows_draw(ps3_game_cfg_on() ? "GAME OPTIONS - %s  (%d/%d)" : "OPTIONS - %s  (%d/%d)", false);
 	draw_footer(s_opt_pages[s_opt_page].rows[s_opt_row].help,
-	            "LEFT/RIGHT Change   L1/R1 Page   X Continue   O Back");
+	            aw_ui() ? "LEFT/RIGHT Change   L1/R1 Page   X Play   O Back"
+	                    : "LEFT/RIGHT Change   L1/R1 Page   X Continue   O Back");
 }
 
 // G15 (Matt): a port's slot rows show only while Players reaches the port. rows = the rows shown, pos = the cursor's.

@@ -411,6 +411,12 @@ sostenido abre el test menu (si solo se lee en el titulo, ajustar el momento), y
 - Quitar GD-ROM, VMU/Maple, FLASH/CLOCK, NETWORK, DRAW COST y TIMING de la vista basica AW.
 - Reemplazar textos Dreamcast ("Disc", "BIOS", "GD-ROM") por "Juego" / "Cartucho" en la UI AW.
 
+**Estado F9.4 (2026-11-13, sin prueba en HW):** la fila `Free Play`/`QUICK FREE` se elimino (menu, cheat, clave cfg); el
+freeplay se cambia solo desde el test menu del juego. En modo AW sin Advanced Mode se ocultan FLASH/CLOCK, MAPLE/VMU y
+NETWORK; la pagina ARCADE (All Bosses, Same Chars, LDM Any) va justo despues de EMULATION y START en la pantalla de inicio
+abre directo en ella; X en opciones lanza el juego sin pasar por la pagina CONTROLS de Dreamcast. `.got`: 872 B libres.
+Pendiente: perfiles `ARCADE DELUXE`/`VANILLA` en una fila, atajo START+SELECT 2 s, textos "Disc"/"BIOS" restantes.
+
 **F9.5 Orden de trabajo**
 
 1. F9.1 pantalla de inicio de AW (solo UI, sin guest).

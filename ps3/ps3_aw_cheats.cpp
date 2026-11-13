@@ -3,7 +3,6 @@
 #include "dc/mem/sh4_mem.h"
 #include "ps3/ps3_aw.h"
 
-int g_aw_freeplay;
 int g_aw_all_bosses;
 int g_aw_same_chars;
 int g_aw_ldm_any;
@@ -20,8 +19,6 @@ void aw_cheats_vblank()
 
 	u32 f1 = ReadMem32_nommu(kDbgFlags1);
 	u32 want1 = 0;
-	if (g_aw_freeplay)
-		want1 |= 0x04000000u;   // QUICK FREE
 	if (g_aw_ldm_any)
 		want1 |= 0x20000000u;   // L CMD FREE
 	if (want1)

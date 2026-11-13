@@ -9,7 +9,7 @@ static const char* const k_help[6] = {
 	"Back to the game.",
 	"Remap A B C D E START COIN for player 1 and 2.",
 	"Opens the game's test menu: coin settings, free play, difficulty. Leave it with SAVE&EXIT.",
-	"Free Play, All Bosses, Same Chars, LDM Any.",
+	"All Bosses, Same Chars, LDM Any.",
 	"The emulator's own pages: video, audio, speed.",
 	"Stop the game and go back to the game list.",
 };

@@ -618,7 +618,6 @@ static const CfgItem s_items[] = {
 	{ "RttAsync",      &g_rtt_async_preset },
 	{ "TaCtxSplit",    &g_ta_ctx_split_preset },
 	{ "KeepFrame",     &g_keep_frame_preset },
-	{ "AwFreePlay",    &g_aw_freeplay },
 	{ "AwAllBosses",   &g_aw_all_bosses },
 	{ "AwSameChars",   &g_aw_same_chars },
 	{ "AwLdmAny",      &g_aw_ldm_any },
