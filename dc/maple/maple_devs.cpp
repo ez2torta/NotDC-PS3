@@ -9,7 +9,6 @@
 #include <sys/stat.h>
 
 const char* maple_sega_controller_name = "Dreamcast Controller";
-const char* maple_aw_controller_name = "Atomiswave Controller";
 // G12: Flycast's full controller; KISS: Psycho Circus checks this name.
 const char* maple_full_controller_name = "Dreamcast PantherDC Controller";
 const char* maple_sega_purupuru_name = "Puru Puru Pack";
@@ -268,7 +267,6 @@ struct maple_full_controller: maple_sega_controller
 struct maple_aw_controller: maple_sega_controller
 {
 	virtual u32 caps() { return 0xFF663F00u; }
-	virtual const char* name() { return maple_aw_controller_name; }
 
 	static u16 dc_to_aw(u16 dc)
 	{

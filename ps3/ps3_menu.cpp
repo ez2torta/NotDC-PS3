@@ -1122,7 +1122,8 @@ static void option_text(const Option* o, char* out, size_t len)
 {
 	if (o->kind == OPT_CHOICE)
 	{
-		const char** names = (aw_pending() && o->names == k_padmap) ? k_padmap_aw : o->names;
+		const char** names = ((aw_pending() || aw_descriptor_path(selectedFilePath)) && o->names == k_padmap)
+		                         ? k_padmap_aw : o->names;
 		int n = choice_count(o);
 		int idx = *o->val - o->base;
 		if (idx < 0 || idx >= n)
@@ -1920,7 +1921,13 @@ int ps3_menu_run(void)
 	if (!s_files)
 		printf("[menu] file list alloc failed (%u KB)\n",
 		       (unsigned)(sizeof(FileEntry) * MAX_FILES / 1024));
-	browser_enter_device(0);
+	{
+		int start = 0;
+		for (int i = 0; i < s_dev_count; i++)
+			if (strcmp(s_dev[i].label, "ARCADE") == 0)
+				start = i;
+		browser_enter_device(start);
+	}
 
 	// Nothing counts until a button is released first, so the press that
 	// started the app cannot fall straight through the first screen.
