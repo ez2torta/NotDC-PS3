@@ -287,6 +287,128 @@ el navegador abre en `HDD/discs` vacio y hay que cambiar a `ARCADE` con Triangul
 
 Cada paso termina con build, prueba HW y log; no se acumulan cambios de interfaz y guest en una sola corrida.
 
+### F9. Modo "solo Atomiswave", arranque directo y controles rapidos para 2 jugadores (reemplaza F8.1 parcial, F8.2 y F8.6)
+
+Decisiones del usuario (2026-11-13): credito compartido (P1 y P2 suman al mismo contador); "Mostrar avanzado" se
+queda en Settings; el mini menu START+SELECT se hace; los ajustes del test menu viven en la flash/nvmem AW.
+
+**Datos del repo de estudio (`../kofxi_aw_modding`) que usa este plan**
+
+- Botones canonicos (`docs/specs/botones.md`): boton fisico 1=`A`/LP, 2=`C`/HP, 3=`E`/BLOWBACK, 4=`B`/LK,
+  5=`D`/HK; adaptador DC A->A, B->C, C->E, X->B, Y->D; moneda = DC D (bit 11), no va por maple.
+  Etiquetas para la UI: `A  LP (puño leve)`, `B  LK (patada leve)`, `C  HP (puño fuerte)`,
+  `D  HK (patada fuerte)`, `E  BLOWBACK`, `START`, `COIN`. El menu F1 del recomp ya usa ese formato
+  (`LP (A)`, `BLOWBACK (E)`).
+- Test menu (`docs/research/runtime/debug-flags-search-2026-11-10.md`): `GAME SETTINGS` (incluye `BUTTON
+  SETTINGS`, `CONTINUE`, `DIFFICULTY`), `SYSTEM SETTINGS` (`LANGUAGE`), `COIN SETTINGS` (`GAME MODE FREE PLAY`).
+  La flash guarda siete registros: `SXA_CREDIT_CONF`, `SXA_COIN_NUM`, `SXA_SYSTEM_SETTING`, `SXA_CREDIT`,
+  `SXA_TOTAL_TIME`, `SXA_MVSPTIME`, `SXA_MVSPINFO`. El flag de FREE PLAY esta, casi seguro, en
+  `SXA_CREDIT_CONF` y **no esta decodificado todavia** (`rematch-menu-observaciones-2026-11-13.md`, limites).
+- `QUICK FREE` (`0x8C35AB3C` bit `0x04000000`) es un flag de debug, no el freeplay real. No usarlo como
+  sustituto final.
+- Referencias para decodificar: `recomp/defaults/kofxi_unlocked_console_flash.bin` y
+  `artifacts/freeplay-windows/persistent/` (flash persistente que ya guarda SAVE&EXIT del test menu).
+- La BIOS AW guarda un ID del cartucho en la flash (sector `0x18000`); si no coincide, borra la SRAM del
+  juego (`docs/decomp/bios/flycast_save_reset.md`). Como NotDC AW salta la BIOS, hay que guardar nuestra propia
+  `aw_flash.bin` y no tocar ese sector.
+
+**Diagnostico del codigo actual**
+
+- `ps3_menu_run()` ya selecciona ARCADE (`ps3_menu.cpp:1927`), pero si el PKG no tiene el kit o el
+  dispositivo no esta marcado como `ARCADE`, entra en HDD/discs vacio; la lista vacia no dice que hacer.
+- `g_pad_map` es un mapa unico DS3 -> DC para todos los puertos. El mapa se edita ciclando valores con
+  LEFT/RIGHT en una lista de 15 filas.
+- La moneda lee solo `kcode[0]`; el P2 no puede insertar ficha.
+- El menu SELECT in-game es el de 17 paginas.
+
+**F9.1 Pantalla de inicio de AW (arreglar lista vacia)**
+
+- Si hay juegos AW (dispositivo `ARCADE`/PKG), la primera pantalla es **una lista de juegos AW**, no un
+  navegador de archivos: `KOF XI` (titulo del `.aw`), centrada, sin cabeceras de dispositivo ni carpeta.
+  La lista vacia y el cambio de dispositivo con Triangulo quedan solo como "Examinar archivos".
+- Si no hay ningun `.aw`: mensaje grande y unico: "No hay juegos Atomiswave. Copia kofxi.aw a
+  NotDC-AW/discs/ o instala el PKG completo." con X = Examinar archivos.
+- Pie de pagina fijo en modo AW: `X Jugar   [] Botones   /\ Test menu   START Opciones   O Salir`.
+  El cursor empieza ya sobre KOF XI; X lanza directamente.
+- Acciones por juego en la pantalla de inicio (sin entrar a menus): **Botones** (F9.2), **Test menu** (F9.3).
+- Guardar ultimo juego y dispositivo en la cfg para no recorrer pantallas.
+- Criterio: abrir la app -> ver KOF XI y 3 acciones, sin pulsar Triangulo ni leer una lista vacia.
+
+**F9.2 Quick remap de botones, 2 jugadores**
+
+- Nuevo `ps3/ps3_aw_input.cpp`: estado AW directo por jugador (`A B C D E START COIN TEST SERVICE` +
+  direcciones). `maple_aw_controller` y `aw_board` leen de ahi, no de `g_pad_map`. Mapa por jugador
+  `g_aw_map[2][...]` (valores de la maquina) con claves cfg `AwP1A`, `AwP2A`, ..., migrando una vez desde `g_pad_map`.
+- Pantalla **BOTONES** accesible desde la pantalla de inicio y desde el menu pausa. Dos columnas P1/P2 (L1/R1 o
+  izquierda/derecha cambian de jugador; si hay un solo pad se muestra P2 con aviso "sin mando").
+  Filas principales, con su etiqueta:
+
+  ```text
+  A  LP  puño leve        [ CUADRADO ]
+  B  LK  patada leve      [ X        ]
+  C  HP  puño fuerte      [ TRIANGULO]
+  D  HK  patada fuerte    [ CIRCULO  ]
+  E  BLOWBACK             [ R1       ]
+  START                   [ START    ]
+  COIN                    [ L1       ]
+  ----
+  Direcciones y otros...  (X para abrir, flujo mas lento)
+  ```
+
+- **Quick remap**: X en una fila = "Pulsa el boton del mando..." y se asigna el siguiente boton DS3 detectado
+  (O cancela). Un atajo "REMAPEAR TODO" recorre A,B,C,D,E,START,COIN en orden para el jugador activo.
+  Si el boton ya se usaba en otra fila, se intercambian (sin botones duplicados por accidente).
+- Direcciones, TEST/SERVICE y stick/D-pad swap: bajo la fila "Direcciones y otros...", mismo mecanismo pero no
+  entra en el quick remap.
+- Presets en una fila: `ARCADE 6 BOTONES` (defecto: Cuadrado=A, X=B, Triangulo=C, Circulo=D, R1=E),
+  `FIGHT PAD` y `RESTABLECER`. Boton `Probar`: panel en vivo que ilumina los botones presionados por cada jugador.
+- **Moneda compartida**: P1 COIN o P2 COIN suman un credito al mismo contador de `0x600280` (cada pulsacion = un
+  pulso, igual que el codigo actual). No hay contador por jugador. `START` de cada jugador sigue siendo propio.
+- Opcional en Settings: "Insertar moneda al pulsar START" (para quien no quiera usar el boton de moneda).
+- Mantener `name()` "Dreamcast Controller" hacia el guest; las etiquetas AW viven solo en la UI.
+- Traza opt-in `[awpad] p=%d cond=%04X`. Criterio: dos DS3 juegan; P1 y P2 remapean A-E, START y COIN en menos
+  de 30 s cada uno, sin salir del juego.
+
+**F9.3 Test menu y mini menu en juego**
+
+- Pantalla de inicio: accion **Test menu** arranca KOF XI con TEST pulsado ~120 frames (con la placa viendo
+  `0x600280`/bit TEST) hasta que el juego entre al test; despues se libera.
+- En juego: SELECT abre **mini menu** de 6 filas (no las 17 paginas): `Continuar`, `Botones`, `Test menu`,
+  `Cheats` (Free Play parche, All Bosses, Same Chars, LDM Any, perfiles), `Opciones avanzadas`, `Cerrar juego`.
+  `Opciones avanzadas` abre el menu actual; ahi vive "Mostrar avanzado" para mostrar el resto de filas.
+- Atajo: START+SELECT 2 s abre el mini menu directo en `Test menu`. `Test menu` en juego fuerza TEST durante 1
+  vblank cuando el juego esta en el titulo, o reinicia con TEST pulsado si no esta.
+- **Freeplay real** (trabajo de investigacion previo, en el repo de estudio):
+  1. Con el recomp/Flycast, entrar a `COIN SETTINGS -> GAME MODE FREE PLAY`, guardar con SAVE&EXIT y comparar
+     la flash antes/despues (`xxd` o un script de diff) para localizar el campo de `SXA_CREDIT_CONF`.
+  2. Documentarlo en `docs/research/` de `kofxi_aw_modding` con confianza y offset.
+  3. En NotDC AW, la fila `Free Play` escribe ese campo en `aw_flash.bin` (con CRC si hace falta) al lanzar,
+     o carga una flash base con freeplay activo. Mientras tanto la fila se llama `Free Play (parche)`.
+- Criterio: entrar al test menu desde la pantalla de inicio, cambiar FREE PLAY/idioma/dificultad, salir con
+  SAVE&EXIT, reiniciar y comprobar que persiste.
+
+**F9.4 Menos perillas**
+
+- En modo AW, el menu pausa muestra solo `Mini menu` (arriba). Settings tiene 5 paginas: `JUEGO`, `CONTROLES`,
+  `PANTALLA`, `AUDIO`, `AVANZADO`; las 17 paginas existentes caen bajo `AVANZADO` y solo se ven con
+  `Mostrar avanzado` ON (ya existe `g_advanced_preset`).
+- Quitar GD-ROM, VMU/Maple, FLASH/CLOCK, NETWORK, DRAW COST y TIMING de la vista basica AW.
+- Reemplazar textos Dreamcast ("Disc", "BIOS", "GD-ROM") por "Juego" / "Cartucho" en la UI AW.
+
+**F9.5 Orden de trabajo**
+
+1. F9.1 pantalla de inicio de AW (solo UI, sin guest).
+2. F9.2 quick remap, moneda compartida y presets; probar con dos pads.
+3. F9.3 mini menu y Test menu; en paralelo, investigar el flag de freeplay en el repo de estudio.
+4. F9.3 freeplay real una vez localizado.
+5. F9.4 recorte de paginas y textos.
+
+Cada paso termina con build, prueba en HW y log; no se acumulan cambios.
+
+**Riesgos:** TOC (1.440 B libres en `.got`; textos AW en un objeto aparte con `-mminimal-toc`); remapear
+mal TEST/SERVICE puede dejar al usuario sin test menu (el mini menu siempre tiene `Test menu`, sin depender del
+mapa); persistir el nombre de boton, no el numero; el decode de freeplay puede ser mas largo de lo previsto.
+
 ## 4. Archivos previstos
 
 | Archivo | Funcion |

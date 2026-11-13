@@ -1317,7 +1317,11 @@ static float list_max_w()
 
 // -- Screens -----------------------------------------------------------------
 
-enum Screen { SCR_BROWSER, SCR_OPTIONS, SCR_CONTROLS, SCR_LAUNCH, SCR_QUIT, SCR_NOBIOS };
+enum Screen { SCR_BROWSER, SCR_OPTIONS, SCR_CONTROLS, SCR_LAUNCH, SCR_QUIT, SCR_NOBIOS, SCR_AWHOME };
+
+// Atomiswave home: the options and controls screens return here when the game came from it.
+static bool s_home_origin;
+static bool s_ctl_direct;   // CONTROLS opened straight from the home: O goes back to it
 
 static int s_sel;      // browser selection
 static int s_opt_page;
@@ -1388,6 +1392,7 @@ static Screen browser_input(u32 pressed, bool swap)
 		{
 			snprintf(selectedFilePath, sizeof(selectedFilePath), "%s", f->path);
 			ps3_game_cfg_open(selectedFilePath);
+			s_home_origin = false;
 			return SCR_OPTIONS;
 		}
 	}
@@ -1406,6 +1411,8 @@ static Screen browser_input(u32 pressed, bool swap)
 		}
 		else if (swap)
 			return SCR_OPTIONS;
+		else
+			return SCR_AWHOME;
 	}
 	else if (pressed & MB_SELECT)
 		return SCR_QUIT;
@@ -1448,6 +1455,137 @@ static void browser_draw(bool swap)
 	         s_sel / ROWS_PER_PAGE + 1, pages, s_file_count);
 	draw_footer(buf, swap ? "X Insert   O Up a folder / Back   /\\ Next device   SELECT Back to game"
 	                      : "X Select   O Up a folder   /\\ Next device   [] Boot BIOS   SELECT Quit");
+}
+
+// -- Atomiswave home ---------------------------------------------------------
+
+struct AwGame
+{
+	char path[512];
+	char title[64];
+};
+
+#define MAX_AW_GAMES 8
+static AwGame s_aw_games[MAX_AW_GAMES];
+static int s_aw_count;
+static int s_aw_sel;
+
+// Name shown for a .aw: its title= line, else the file name (kofxi.aw is known).
+static void aw_game_title(AwGame* g, const char* name)
+{
+	g->title[0] = '\0';
+	FILE* f = fopen(g->path, "r");
+	if (f)
+	{
+		char line[160];
+		while (fgets(line, sizeof(line), f))
+			if (strncmp(line, "title=", 6) == 0)
+			{
+				snprintf(g->title, sizeof(g->title), "%s", line + 6);
+				g->title[strcspn(g->title, "\r\n")] = '\0';
+				break;
+			}
+		fclose(f);
+	}
+	if (g->title[0])
+		return;
+	const char* dot = strrchr(name, '.');
+	snprintf(g->title, sizeof(g->title), "%.*s", dot ? (int)(dot - name) : (int)strlen(name), name);
+	if (strcasecmp(g->title, "kofxi") == 0)
+		snprintf(g->title, sizeof(g->title), "THE KING OF FIGHTERS XI");
+}
+
+// One row per .aw at the root of each device. The file browser stays behind the Triangle key.
+static void aw_scan_games()
+{
+	s_aw_count = 0;
+	s_aw_sel = 0;
+	for (int d = 0; d < s_dev_count; d++)
+	{
+		list_directory(s_dev[d].root);
+		for (int i = 0; i < s_file_count && s_aw_count < MAX_AW_GAMES; i++)
+		{
+			const FileEntry* f = &s_files[i];
+			if (f->is_dir || !aw_descriptor_path(f->name))
+				continue;
+			bool dup = false;
+			for (int k = 0; k < s_aw_count; k++)
+				if (strcmp(s_aw_games[k].path, f->path) == 0)
+					dup = true;
+			if (dup)
+				continue;
+			snprintf(s_aw_games[s_aw_count].path, sizeof(s_aw_games[0].path), "%s", f->path);
+			aw_game_title(&s_aw_games[s_aw_count], f->name);
+			s_aw_count++;
+		}
+	}
+	printf("[menu] %d Atomiswave game(s)\n", s_aw_count);
+}
+
+static void aw_home_pick()
+{
+	snprintf(selectedFilePath, sizeof(selectedFilePath), "%s", s_aw_games[s_aw_sel].path);
+	ps3_game_cfg_open(selectedFilePath);
+	s_home_origin = true;
+}
+
+static Screen aw_home_input(u32 pressed)
+{
+	if (pressed & MB_UP)
+		s_aw_sel = s_aw_sel > 0 ? s_aw_sel - 1 : (s_aw_count ? s_aw_count - 1 : 0);
+	else if (pressed & MB_DOWN)
+		s_aw_sel = (s_aw_sel < s_aw_count - 1) ? s_aw_sel + 1 : 0;
+	else if (pressed & MB_TRIANGLE)
+	{
+		s_home_origin = false;
+		browser_enter_device(s_dev_cur);
+		return SCR_BROWSER;
+	}
+	else if (pressed & MB_SELECT)
+		return SCR_QUIT;
+	else if (s_aw_count == 0)
+	{
+		if (pressed & MB_CROSS)
+		{
+			browser_enter_device(s_dev_cur);
+			return SCR_BROWSER;
+		}
+	}
+	else if (pressed & MB_CROSS)
+	{
+		aw_home_pick();
+		return SCR_LAUNCH;
+	}
+	else if (pressed & MB_SQUARE)
+	{
+		aw_home_pick();
+		s_ctl_direct = true;
+		return SCR_CONTROLS;
+	}
+	else if (pressed & MB_START)
+	{
+		aw_home_pick();
+		return SCR_OPTIONS;
+	}
+	return SCR_AWHOME;
+}
+
+static void aw_home_draw()
+{
+	char cut[256];
+
+	draw_header("NotDC AW", "ATOMISWAVE");
+	if (s_aw_count == 0)
+	{
+		draw_row(0, false, COL_TEXT, "No Atomiswave game found.", NULL);
+		draw_row(1, false, COL_DIM, "Install the full PKG or copy kofxi.aw to NotDC-AW/discs/.", NULL);
+		draw_footer(NULL, "X /\\ Browse files   SELECT Quit");
+		return;
+	}
+	for (int i = 0; i < s_aw_count; i++)
+		draw_row(i, i == s_aw_sel, COL_TEXT, s_aw_games[i].title, NULL);
+	draw_footer(fit(s_aw_games[s_aw_sel].path, list_max_w(), cut, sizeof(cut)),
+	            "X Play   [] Controls   START Options   /\\ Browse files   SELECT Quit");
 }
 
 // Puts the cursor on a shown page and row, then gives that page's shown rows. Page 0 always shows Advanced Mode.
@@ -1510,7 +1648,7 @@ static Screen options_input(u32 pressed)
 	else if (pressed & MB_CIRCLE)
 	{
 		ps3_game_cfg_close();
-		return SCR_BROWSER;
+		return s_home_origin ? SCR_AWHOME : SCR_BROWSER;
 	}
 
 	return SCR_OPTIONS;
@@ -1586,7 +1724,15 @@ static Screen controls_input(u32 pressed)
 	else if (pressed & (MB_CROSS | MB_START))
 		return SCR_LAUNCH;
 	else if (pressed & MB_CIRCLE)
+	{
+		if (s_ctl_direct)
+		{
+			s_ctl_direct = false;
+			ps3_game_cfg_close();
+			return SCR_AWHOME;
+		}
 		return SCR_OPTIONS;
+	}
 
 	return SCR_CONTROLS;
 }
@@ -1927,13 +2073,14 @@ int ps3_menu_run(void)
 			if (strcmp(s_dev[i].label, "ARCADE") == 0)
 				start = i;
 		browser_enter_device(start);
+		aw_scan_games();
 	}
 
 	// Nothing counts until a button is released first, so the press that
 	// started the app cannot fall straight through the first screen.
 	s_pad_prev = ~0u;
 
-	Screen scr = SCR_BROWSER;
+	Screen scr = SCR_AWHOME;
 	while (scr != SCR_LAUNCH && scr != SCR_QUIT)
 	{
 		if (ps3_exit_pending())
@@ -1945,6 +2092,7 @@ int ps3_menu_run(void)
 		u32 pressed = pad_poll(16);
 		switch (scr)
 		{
+		case SCR_AWHOME:   scr = aw_home_input(pressed);  break;
 		case SCR_BROWSER:  scr = browser_input(pressed, false);  break;
 		case SCR_OPTIONS:  scr = options_input(pressed);  break;
 		case SCR_CONTROLS: scr = controls_input(pressed); break;
@@ -1961,6 +2109,7 @@ int ps3_menu_run(void)
 		{
 			switch (scr)
 			{
+			case SCR_AWHOME:   aw_home_draw();  break;
 			case SCR_BROWSER:  browser_draw(false);  break;
 			case SCR_OPTIONS:  options_draw();  break;
 			case SCR_CONTROLS: controls_draw(); break;
