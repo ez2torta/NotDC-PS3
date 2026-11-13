@@ -4,6 +4,10 @@
 #include "spg.h"
 #include "dc/sh4/sys_gate.h"
 #include "dc/pvr/pvr_vram.h"
+#include "ps3/ps3_aw.h"
+
+extern u32 spg_InVblank;
+extern u32 spg_ScanlineCount;
 
 // Basic PVR register emulation for the PowerVR CLX2 ("Holly"): a flat 32KB byte array, accessed via PvrReg().
 // TODO: full TA emulation is still needed for accurate rendering.
@@ -27,7 +31,20 @@ u32 FASTCALL libPvr_ReadReg(u32 addr, u32 size)
 		return 0;
 
 	if (g_sys_gate_on && (addr & RegMask) == SPG_STATUS_addr)
-		return spg_read_status();
+	{
+		const u32 st = spg_read_status();
+		if (aw_active())
+		{
+			static unsigned s_awspg;
+			if (s_awspg < 32)
+			{
+				printf("[awspg] status=%08X vbstart=%u vbend=%u scan=%u in=%u\n",
+				       st, SPG_VBLANK.vbstart, SPG_VBLANK.vbend, spg_ScanlineCount, spg_InVblank);
+				s_awspg++;
+			}
+		}
+		return st;
+	}
 
 	return PvrReg(addr, u32);
 }

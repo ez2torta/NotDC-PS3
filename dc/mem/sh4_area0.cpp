@@ -9,6 +9,10 @@
 #include "ps3/ps3_sndthr.h"
 #include "ps3/ps3_presets.h"
 #include "ps3/ps3_sfres.h"
+#include "ps3/ps3_aw.h"
+#include "dc/aw/aw_flash.h"
+#include "dc/aw/aw_cart.h"
+#include "dc/aw/aw_board.h"
 
 // Area 0: 0-1FFFFF boot ROM, 200000 flash, 5F6800 sysctrl, 5F6C00 Maple, 5F7000 GD-ROM, 5F7400 G1,
 // 5F7800 G2, 5F7C00 PVR i/f, 5F8000 TA/PVR, 600000 modem, 700000 AICA, 710000 RTC, 800000 wave RAM.
@@ -54,6 +58,14 @@ T FASTCALL ReadMem_area0(u32 addr)
 {
 	const bool no_rom = g_mem_map_preset && (addr & 0x02000000);
 	addr &= 0x01FFFFFF;  // Strip unused upper bits
+
+	// ---- Atomiswave: flash at 0x0/0xA0000000, cart at 5F7000 and board I/O at 600000 ----
+	if (aw_active() && addr < 0x00020000)
+		return (T)aw_flash_read(addr, sz);
+	if (aw_active() && addr >= 0x005F7000 && addr <= 0x005F70FF)
+		return (T)aw_cart_read(addr, sz);
+	if (aw_active() && addr >= 0x00600000 && addr <= 0x006007FF)
+		return (T)aw_board_read(addr, sz);
 
 	// base is the 64KB page index (addr >> 16)
 	const u32 base = addr >> 16;
@@ -165,6 +177,23 @@ void FASTCALL WriteMem_area0(u32 addr, T data)
 {
 	const bool no_rom = g_mem_map_preset && (addr & 0x02000000);
 	addr &= 0x01FFFFFF;  // Strip unused upper bits
+
+	// ---- Atomiswave: flash at 0x0/0xA0000000, cart at 5F7000 and board I/O at 600000 ----
+	if (aw_active() && addr < 0x00020000)
+	{
+		aw_flash_write(addr, (u32)data, sz);
+		return;
+	}
+	if (aw_active() && addr >= 0x005F7000 && addr <= 0x005F70FF)
+	{
+		aw_cart_write(addr, (u32)data, sz);
+		return;
+	}
+	if (aw_active() && addr >= 0x00600000 && addr <= 0x006007FF)
+	{
+		aw_board_write(addr, (u32)data, sz);
+		return;
+	}
 
 	const u32 base = addr >> 16;
 

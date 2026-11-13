@@ -12,6 +12,9 @@
 #include "dc/dc.h"
 #include "dc/flash_fix.h"
 #include "ps3/ps3_presets.h"
+#include "ps3/ps3_aw.h"
+
+extern void LoadDCFlashOnly();
 #include "_vmem.h"
 #include "mmu.h"
 
@@ -185,13 +188,27 @@ static bool save_flash(bool forced)
 
 void mem_SaveFlash()
 {
-	save_flash(false);
+	if (aw_active())
+	{
+		aw_save_flash();
+		if (g_flash_loaded)
+			save_flash(false);
+	}
+	else
+		save_flash(false);
 }
 
 // P85: a zeroed or half-loaded array must never replace the saved flash.
 void mem_SaveFlashForced()
 {
-	if (!g_flash_loaded || flash_b.data == 0)
+	if (aw_active())
+	{
+		aw_save_flash();
+		if (g_flash_loaded)
+			save_flash(true);
+		printf("[flash] forced exit: Atomiswave + DC flash saved\n");
+	}
+	else if (!g_flash_loaded || flash_b.data == 0)
 		printf("[flash] forced exit: no flash loaded, nothing saved\n");
 	else
 		printf("[flash] forced exit: flash %s\n", save_flash(true) ? "saved" : "NOT saved");
@@ -207,7 +224,10 @@ void mem_Reset(bool Manual)
 		bios_b.Zero();
 		g_flash_loaded = false;
 		flash_b.Zero();
-		LoadBiosFiles();
+		if (aw_pending())
+			LoadDCFlashOnly();
+		else
+			LoadBiosFiles();
 	}
 
 	sh4_area0_Reset(Manual);
@@ -222,6 +242,8 @@ void mem_Term()
 	sh4_area0_Term();
 
 	mem_SaveFlash();
+	if (aw_active())
+		aw_shutdown();
 
 	flash_b.Free();
 	bios_b.Free();

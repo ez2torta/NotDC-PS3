@@ -24,6 +24,7 @@ automations.MD
 
 nullDC.cfg
 NotDC.cfg
+NotDC-AW.cfg
 *.log
 
 dc_*.bin

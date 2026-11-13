@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 
 const char* maple_sega_controller_name = "Dreamcast Controller";
+const char* maple_aw_controller_name = "Atomiswave Controller";
 // G12: Flycast's full controller; KISS: Psycho Circus checks this name.
 const char* maple_full_controller_name = "Dreamcast PantherDC Controller";
 const char* maple_sega_purupuru_name = "Puru Puru Pack";
@@ -262,6 +263,68 @@ struct maple_full_controller: maple_sega_controller
 	virtual bool second_stick() { return true; }
 };
 
+// Atomiswave JAMMA pad: function 0x01000000, caps 0xFF663F00. The DC buttons are remapped to
+// the AW names A/B/C/D/E; coin is not on maple (board 0x600280).
+struct maple_aw_controller: maple_sega_controller
+{
+	virtual u32 caps() { return 0xFF663F00u; }
+	virtual const char* name() { return maple_aw_controller_name; }
+
+	static u16 dc_to_aw(u16 dc)
+	{
+		struct M { unsigned bit; u16 aw; };
+		static const M map[] = {
+			{0, 1u << 0}, {1, 1u << 1}, {2, 1u << 2}, {3, 1u << 3},
+			{4, 1u << 4}, {5, 1u << 5}, {6, 1u << 6}, {7, 1u << 7},
+			{8, 1u << 9}, {9, 1u << 9}, {10, 1u << 10},
+			{12, 1u << 13}, {13, 1u << 14},
+		};
+		u16 aw = 0xFFFFu;
+		for (unsigned i = 0; i < sizeof(map) / sizeof(map[0]); i++)
+			if ((dc & (1u << map[i].bit)) == 0)
+				aw &= ~map[i].aw;
+		if ((aw & 0x30u) == 0) aw |= 0x30u;
+		if ((aw & 0xC0u) == 0) aw |= 0xC0u;
+		return aw;
+	}
+
+	virtual u32 dma(u32 cmd)
+	{
+		if (cmd == MDC_DeviceRequest || cmd == MDC_AllStatusReq)
+		{
+			w32(MFID_0_Input);
+			w32(caps());
+			w32(0);
+			w32(0);
+			w8(0xFF);
+			w8(0);
+			wstr(maple_sega_controller_name, 30);
+			wstr(maple_sega_brand, 60);
+			w16(0x01AE);
+			w16(0x01F4);
+			if (cmd == MDC_AllStatusReq)
+			{
+				wptr(maple_pad_extra, 80);
+				return MDRS_DeviceStatusAll;
+			}
+			return MDRS_DeviceStatus;
+		}
+		if (cmd == MDCF_GetCondition)
+		{
+			PlainJoystickState pjs;
+			config->GetInput(&pjs);
+			w32(MFID_0_Input);
+			w16(dc_to_aw(pjs.kcode));
+			for (int i = 0; i < 6; i++)
+				w8(0x80);
+			return MDRS_DataTransfer;
+		}
+		if (cmd == MDC_DeviceReset || cmd == MDC_DeviceKill)
+			return MDRS_DeviceReply;
+		return MDRE_UnknownFunction;
+	}
+};
+
 // P13, Flycast maple_sega_purupuru: the vibration pack. SetCondition goes to the pad's motor through the config map.
 struct maple_sega_purupuru: maple_base
 {
@@ -349,7 +412,7 @@ struct maple_sega_purupuru: maple_base
 // Sega Dreamcast Visual Memory Unit: one raw 128 KB flash image per slot, Flycast's file format.
 // misc/maple_check sets its own folder.
 #ifndef VMU_DIR
-#define VMU_DIR "/dev_hdd0/savedata/vmu"
+#define VMU_DIR "/dev_hdd0/data/NotDC-AW/vmu"
 #endif
 
 static void vmu_put16(u8* p, u32 v)
@@ -1129,6 +1192,10 @@ maple_device* maple_Create(MapleDeviceType type)
 
 	case MDT_PuruPuru:
 		rv = new maple_sega_purupuru();
+		break;
+
+	case MDT_AwController:
+		rv = new maple_aw_controller();
 		break;
 
 	default:

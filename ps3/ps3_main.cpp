@@ -8,6 +8,7 @@
 #include "ps3_presets.h"
 #include "ps3_phase.h"
 #include "ps3_gdasync.h"
+#include "ps3_aw.h"
 #include "config/config.h"
 #include "plugins/plugin_manager.h"
 #include "dc/sh4/sh4_registers.h"
@@ -42,11 +43,11 @@ SYS_PROCESS_PARAM(1001, 0x100000);
 // Bring-up: JIT block-entry counter, bumped by generated code (DebugLoop only).
 extern "C" volatile u32 g_jit_blocks_entered;
 
-// Data root; BIOS lives in data/, nullDC.cfg at the top.
-#define PS3_DATA_ROOT "/dev_hdd0/data/NotDC/"
+// Data root; BIOS lives in data/, NotDC-AW.cfg at the top. Separate from NotDC so a test never touches its data.
+#define PS3_DATA_ROOT "/dev_hdd0/data/NotDC-AW/"
 // The running file when argv[0] is no path. G15 Close Game starts the plain RELOAD.SELF in its folder: the spawn
 // does not start the NPDRM EBOOT.BIN of a PKG.
-#define PS3_SELF_PATH "/dev_hdd0/game/NOTDC0000/USRDIR/EBOOT.BIN"
+#define PS3_SELF_PATH "/dev_hdd0/game/NOTDCAW01/USRDIR/EBOOT.BIN"
 
 uint64_t ps3_timebase_hz = 79800000u;
 
@@ -78,8 +79,8 @@ void mem_SaveFlashForced();               // dc/mem/sh4_mem.cpp
 // clashes with blockmanager.h, so it lives here and not in ps3_nojit.cpp.
 extern "C" void bm_Reset() {}
 
-#define PS3_LOG_FILE PS3_DATA_ROOT "NotDC.log"
-#define PS3_LOG_PREV PS3_DATA_ROOT "NotDC_prev.log"
+#define PS3_LOG_FILE PS3_DATA_ROOT "NotDC-AW.log"
+#define PS3_LOG_PREV PS3_DATA_ROOT "NotDC-AW_prev.log"
 
 // Write Log row: printf fills one buffer while the monitor thread writes the other to the HDD.
 static struct
@@ -363,6 +364,9 @@ int os_GetFile(char* szFileName, char* szParse, u32 flags)
 	// .elf files boot through elf_loader, never through the disc plugin.
 	if (len > 4 && strcasecmp(selectedFilePath + len - 4, ".elf") == 0)
 		return false;
+	// Atomiswave descriptors are not discs either.
+	if (aw_descriptor_path(selectedFilePath))
+		return false;
 	strcpy(szFileName, selectedFilePath);
 	return true;
 }
@@ -397,7 +401,7 @@ int main(int argc, char* argv[])
 
 	ps3_timebase_hz = sysGetTimebaseFrequency();
 
-	printf("[ps3] NotDC " __DATE__ " " __TIME__ " %s, Close Game starts %s\n", run, self);
+	printf("[ps3] NotDC AW " __DATE__ " " __TIME__ " %s, Close Game starts %s\n", run, self);
 	printf("[ps3] netInitialize=%d timebase=%llu Hz sizeof(void*)=%u\n",
 	       net_ret, (unsigned long long)ps3_timebase_hz, (unsigned)sizeof(void*));
 	printf("[ps3] largest free block at boot: %u KB\n", (unsigned)(ps3_largest_block() / 1024));

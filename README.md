@@ -8,21 +8,25 @@ with the open-source [PSL1GHT](https://github.com/ps3dev/PSL1GHT) SDK.
 NotDC is work in progress. See
 [Game compatibility](#game-compatibility).
 
+> **NotDC AW test build.** This tree builds and installs as **NotDC AW** (`NOTDCAW01`). It keeps its data in
+> `/dev_hdd0/data/NotDC-AW/`, so it does not overwrite the settings, logs, cheats or VMU files of a NotDC install.
+> The KOF XI Atomiswave plan is in [PLAN-KOFXI-AW.md](PLAN-KOFXI-AW.md).
+
 ## Install and set up
 
-1. Install `notdc_ps3.pkg` with the Package Manager on the XMB.
-2. Copy `dc_boot.bin` to `/dev_hdd0/data/NotDC/data/`.
+1. Install `notdc_aw_ps3.pkg` with the Package Manager on the XMB.
+2. Copy `dc_boot.bin` to `/dev_hdd0/data/NotDC-AW/data/`.
 3. Optional: copy `dc_flash.bin` to the same folder. Without it, NotDC makes a flash (USA, English, NTSC).
-4. Copy your disc images to `/dev_hdd0/data/NotDC/discs/` or to a USB drive.
+4. Copy your disc images to `/dev_hdd0/data/NotDC-AW/discs/` or to a USB drive.
 5. Start NotDC from the Game column and select a disc.
 
 **NotDC does not include a BIOS or any game.**
 
 | Path | Content |
 |---|---|
-| `/dev_hdd0/data/NotDC/NotDC.cfg` | Settings. A new package install keeps them. |
-| `/dev_hdd0/data/NotDC/cheats/` | Cheat files, `<image name>.cht`. Set the Cheats option to ON. |
-| `/dev_hdd0/savedata/vmu/` | VMU saves, raw 128 KB images. |
+| `/dev_hdd0/data/NotDC-AW/NotDC-AW.cfg` | Settings. A new package install keeps them. |
+| `/dev_hdd0/data/NotDC-AW/cheats/` | Cheat files, `<image name>.cht`. Set the Cheats option to ON. |
+| `/dev_hdd0/data/NotDC-AW/vmu/` | VMU saves, raw 128 KB images. |
 
 
 ## Game compatibility
@@ -37,7 +41,7 @@ NotDC is work in progress. See
 
 1. Search the reports for the game. If a report exists, add a comment to it, and do not open a new one.
 2. Use the default settings first. If you change a setting, write it in the report.
-3. Set **EMULATION > Write Log** to ON. NotDC then writes a log to `/dev_hdd0/data/NotDC/`.
+3. Set **EMULATION > Write Log** to ON. NotDC AW then writes a log to `/dev_hdd0/data/NotDC-AW/`.
 4. Play past the intro and the menus, into the game. Try more than one level or mode if you can.
 5. Write down what goes wrong, where, and if you can make it happen again.
 6. Provide some images/videos if possible.
@@ -46,9 +50,9 @@ NotDC is work in progress. See
 
 1. Open a [Game compatibility report](https://github.com/Mayo1970/NotDC-PS3/issues/new?template=game_compatibility.yml).
 2. Fill in the form. Send one report for each game.
-3. Attach the two log files from `/dev_hdd0/data/NotDC/`: `NotDC.log` and `NotDC_prev.log`. Each start of NotDC
-   moves the old `NotDC.log` to `NotDC_prev.log`. After Close Game, or after a freeze and a restart, the game run is
-   in `NotDC_prev.log`.
+3. Attach the two log files from `/dev_hdd0/data/NotDC-AW/`: `NotDC-AW.log` and `NotDC-AW_prev.log`. Each start of NotDC AW
+   moves the old `NotDC-AW.log` to `NotDC-AW_prev.log`. After Close Game, or after a freeze and a restart, the game run is
+   in `NotDC-AW_prev.log`.
 4. Select the status that fits best:
 
 | Status | Meaning |
@@ -80,7 +84,7 @@ All cases are still worth reporting nonetheless.
 
 ## Compiling
 
-The build makes `build/notdc_ps3.pkg`. The maintainer builds in Docker with `ppu-gcc` 7.2.0.
+The build makes `build/notdc_aw_ps3.pkg`. The maintainer builds in Docker with `ppu-gcc` 7.2.0.
 
 ### With Docker (recommended)
 
@@ -158,9 +162,10 @@ Do this only if you cannot use the prebuilt image.
 
 | Command | Result |
 |---|---|
-| `./build.sh` | `build/notdc_ps3.elf` |
+| `./build.sh` | `build/notdc_aw_ps3.elf` |
 | `./build.sh self` | `build/EBOOT.BIN` |
-| `./build.sh pkg` | `build/notdc_ps3.pkg` |
+| `./build.sh pkg` | `build/notdc_aw_ps3.pkg` |
+| `./build.sh pkg-full` | `build/notdc_aw_ps3_full.pkg` (packed KOF XI set in `USRDIR`, from `misc/aw_pkg`) |
 | `./build.sh clean` | Deletes `build/` |
 
 | Variable | Effect |

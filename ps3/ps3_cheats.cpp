@@ -1,13 +1,14 @@
 // Plan section 7, bundle 12 (P36): the disc's cheat file, read at boot and applied at each vblank.
 #include "types.h"
 #include "ps3_cheats.h"
+#include "ps3_aw_cheats.h"
 #include "ps3_presets.h"
 #include "dc/mem/sh4_mem.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 
-#define CHEAT_DIR      "/dev_hdd0/data/NotDC/cheats/"
+#define CHEAT_DIR      "/dev_hdd0/data/NotDC-AW/cheats/"
 // Flycast refuses a cheat file of 1 MB or more.
 #define CHEAT_FILE_MAX (1024 * 1024)
 
@@ -130,6 +131,7 @@ int ps3_cheats_disc(const u8* id)
 
 void ps3_cheats_vblank(void)
 {
+	aw_cheats_vblank();
 	if (!s_count)
 		return;
 	s_writes += cheats_apply(s_cheats, s_count, ram_read, ram_write);

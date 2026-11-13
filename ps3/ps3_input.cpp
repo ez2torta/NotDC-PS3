@@ -7,6 +7,7 @@
 #include "ps3_padports.h"
 #include "ps3_padcon.h"
 #include "ps3_presets.h"
+#include "ps3/ps3_aw.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -313,6 +314,12 @@ void UpdateInputState(u32 port)
 	// maple_cfg masks C/D; set them anyway so kcode holds every pressed bit.
 	if (l) kcode[port] &= ~key_CONT_D;
 	if (r) kcode[port] &= ~key_CONT_C;
+	// Atomiswave: L3/R3 are SERVICE/TEST (the maple AW pad maps these to bits 12/13).
+	if (aw_pending())
+	{
+		if (d->BTN_L3) kcode[port] &= ~key_CONT_DPAD2_UP;
+		if (d->BTN_R3) kcode[port] &= ~key_CONT_DPAD2_DOWN;
+	}
 
 	// Raw stick is 0..255 with 255 = down, and DC positive Y is down too.
 	if (g_stick_swap_preset)

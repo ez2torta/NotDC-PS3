@@ -10,6 +10,7 @@
 #include "dc.h"
 #include "flash_fix.h"
 #include "ps3/ps3_presets.h"
+#include "ps3/ps3_aw.h"
 #include "config/config.h"
 #include "plugins/plugin_manager.h"
 #include "ps3/ps3_sndthr.h"
@@ -28,7 +29,11 @@ extern void FASTCALL armReset(bool Manual);
 // ELF boot hook – defined in nullDC.cpp, called after every CPU reset
 // so the ELF entry point overrides the BIOS reset vector.
 extern "C" void dc_elf_pre_run_hook();
+// Atomiswave direct-boot hook, same point: mem_Reset() has already zeroed RAM.
+extern "C" void dc_aw_pre_run_hook();
 extern "C" int get_jit_exit_preset();
+extern bool g_disc_idle_off;
+extern int g_jit_idle_hash_preset;
 
 static inline void arm_Term()             { armTerm(); }
 static inline void arm_Reset(bool manual) { armReset(manual); }
@@ -211,10 +216,19 @@ static void ResetDC(bool manual)
 	// ELF boot: the ELF entry replaces the BIOS reset vector. After sh4_cpu.Reset(), so our PC
 	// wins over 0xA0000000.
 	dc_elf_pre_run_hook();
+	dc_aw_pre_run_hook();
 
 	// Row "SH4 MMU" (P38): after mem_Reset() read the disc's IP.BIN, before the CPU runs.
 	if (!manual)
 		sh4_fullmmu_select();
+
+	// Atomiswave polls SPG_STATUS in a tight loop. The JIT idle rule would skip the read and the
+	// loop would never see VSYNC, so turn it off for this boot.
+	if (aw_active())
+	{
+		g_disc_idle_off = true;
+		g_jit_idle_hash_preset = 0;
+	}
 }
 
 // Soft reset; safe while the CPU runs.
@@ -322,6 +336,7 @@ extern volatile bool g_flash_loaded;
 void maple_vmu_game(const char* id10);   // dc/maple/maple_devs.cpp (P37)
 extern bool g_disc_pso2;                 // dc/sh4/rec_v2/driver.cpp: guards Sylverant's 0xB2 buffer
 extern bool g_disc_idle_off;             // ps3/ps3_presets.cpp: JIT IDLE RULE runs as OFF
+extern int g_jit_idle_hash_preset;       // ps3/ps3_presets.cpp: known wait loops
 int ps3_cheats_disc(const u8* id);       // ps3/ps3_cheats.cpp (G24)
 
 // Cable forced for this boot only; -1 = the nullDC.cfg value. Read by bsc.cpp read_BSC_PDTRA.
@@ -381,6 +396,33 @@ static void apply_disc_meta()
 		g_cable_override = 3;
 		printf("[disc] no VGA support, TV composite for this boot\n");
 	}
+}
+
+// Atomiswave direct boot: the game still uses the DC-style system flash for region/language, but it
+// does not need dc_boot.bin. Load dc_flash_wb.bin/dc_flash.bin, or build the USA/English flash.
+void LoadDCFlashOnly()
+{
+	char* base_path = GetEmuPath("data/");
+	if (!base_path)
+		return;
+	char* flash_path = BuildFilePath(base_path, "dc_flash_wb.bin");
+	bool ok = flash_path && LoadFileToSh4Flashrom(flash_path);
+	if (flash_path)
+		free(flash_path);
+	if (!ok)
+	{
+		flash_path = BuildFilePath(base_path, "dc_flash.bin");
+		ok = flash_path && LoadFileToSh4Flashrom(flash_path);
+		if (flash_path)
+			free(flash_path);
+	}
+	free(base_path);
+	if (!ok)
+		dc_flash_build();
+	dc_flash_set_time(settings.dreamcast.RTC);
+	dc_flash_fixup(settings.dreamcast.RTC);
+	g_flash_loaded = true;
+	dc_flash_report();
 }
 
 void LoadBiosFiles()

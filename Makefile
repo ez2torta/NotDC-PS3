@@ -5,12 +5,14 @@ $(error "PS3DEV is not set")
 endif
 PSL1GHT ?= $(PS3DEV)
 
-TARGET     := notdc_ps3
-TITLE      := NotDC
-TITLE_ID   := NOTDC0000
+TARGET     := notdc_aw_ps3
+TITLE      := NotDC AW
+TITLE_ID   := NOTDCAW01
 CONTENT_ID := UP0001-$(TITLE_ID)_00-0000000000000000
-# PARAM.SFO APP_VER (XMB version) for release 0.8.3; sfo has no flag for it, so the pkg rule edits a copy of sfo.xml.
-APP_VER    := 00.83
+# PARAM.SFO APP_VER (XMB version) for the NotDC AW test build; sfo has no flag for it, so the pkg rule edits a copy of sfo.xml.
+APP_VER    := 00.01
+# pkg-full: staged aw/ tree (misc/ is gitignored). It must contain aw/kofxi/.
+AW_PKG_DIR ?= misc/aw_pkg
 BUILD      ?= build
 # XMB icon, 320x176 PNG. Falls back to the PSL1GHT default if icon/ is missing.
 ICON0      ?= $(wildcard icon/ICON0.png)
@@ -32,7 +34,7 @@ PKG      := $(PS3DEV)/bin/pkg
 # ps3/: the PS3 platform layer (renderer, pads, audio, SH4 JIT backend).
 # ps3/ps3gl: the prebuilt shader programs (ps3gl_shader_*.h) that RSX Direct loads (ps3/rsxd_prog.h).
 SRC_DIRS := . cl config plugins \
-            dc dc/aica dc/asic dc/gdrom dc/maple dc/mem dc/pvr dc/sh4 dc/sh4/rec_v2 \
+            dc dc/aica dc/asic dc/aw dc/gdrom dc/maple dc/mem dc/pvr dc/sh4 dc/sh4/rec_v2 \
             plugs/nullExtDev plugs/nullAICA plugs/caiqueAICA plugs/vbaARM plugs/ImgReader plugs/drkPvr ps3
 
 SRCS := $(foreach d,$(SRC_DIRS),$(wildcard $(d)/*.cpp) $(wildcard $(d)/*.c))
@@ -85,6 +87,9 @@ $(BUILD)/ps3/ps3_rsxwatch.o: CFLAGS += -mminimal-toc
 $(BUILD)/ps3/ps3_rsxd.o: CXXFLAGS += -mminimal-toc
 # G21 SB_SFRES log: a debug log, so its rings and texts take one TOC entry.
 $(BUILD)/ps3/ps3_sfres.o: CXXFLAGS += -mminimal-toc
+# Atomiswave loader/cart/devices: cold path, own tables and texts.
+$(BUILD)/ps3/ps3_aw.o: CXXFLAGS += -mminimal-toc
+$(BUILD)/dc/aw/%.o: CXXFLAGS += -mminimal-toc
 
 # --no-multi-toc: a split TOC emits r2off stubs that hang the PS3 at boot.
 # --wrap: stdout has no console; ps3/ps3_main.cpp sends it to the UDP log.
@@ -95,7 +100,7 @@ LDFLAGS := -Wl,--no-multi-toc -L$(PSL1GHT)/ppu/lib -L$(PS3DEV)/portlibs/ppu/lib 
 LIBS := -lrsx -lgcm_sys -lio -laudio -lsysutil -lsysmodule \
         -lnet -lnetctl -lrt -llv2 -lfreetype -lpng -lz -lm
 
-.PHONY: all self pkg clean
+.PHONY: all self pkg pkg-full clean
 
 all: $(BUILD)/$(TARGET).elf
 
@@ -183,6 +188,7 @@ self: $(BUILD)/$(TARGET).elf
 # G15 Close Game: sysProcessExitSpawn2 does not start the NPDRM EBOOT.BIN, so it starts the plain RELOAD.SELF.
 pkg: $(BUILD)/$(TARGET).elf
 	$(SPRXLINK) $<
+	@rm -rf $(BUILD)/pkg
 	@mkdir -p $(BUILD)/pkg/USRDIR
 	$(MAKE_SELF_NPDRM) $< $(BUILD)/pkg/USRDIR/EBOOT.BIN $(CONTENT_ID)
 	$(MAKE_SELF) $< $(BUILD)/pkg/USRDIR/RELOAD.SELF
@@ -191,6 +197,31 @@ pkg: $(BUILD)/$(TARGET).elf
 	@cp $(ICON0) $(BUILD)/pkg/ICON0.PNG
 	$(PKG) --contentid $(CONTENT_ID) $(BUILD)/pkg/ $(BUILD)/$(TARGET).pkg
 	@echo "Done: $(BUILD)/$(TARGET).pkg"
+
+# Full test package: EBOOT plus the staged aw tree. The flash/config still go to /dev_hdd0/data/NotDC-AW.
+pkg-full: $(BUILD)/$(TARGET).elf
+	@if [ ! -f "$(AW_PKG_DIR)/aw/kofxi/roms/ax3201m01.mrom1.dec" ]; then \
+		echo "pkg-full: missing $(AW_PKG_DIR)/aw/kofxi/roms (set AW_PKG_DIR)"; exit 1; fi
+	$(SPRXLINK) $<
+	@rm -rf $(BUILD)/pkg
+	@mkdir -p $(BUILD)/pkg/USRDIR
+	$(MAKE_SELF_NPDRM) $< $(BUILD)/pkg/USRDIR/EBOOT.BIN $(CONTENT_ID)
+	$(MAKE_SELF) $< $(BUILD)/pkg/USRDIR/RELOAD.SELF
+	sed '/"APP_VER"/{n;s/[0-9][0-9]\.[0-9][0-9]/$(APP_VER)/;}' $(PS3DEV)/bin/sfo.xml > $(BUILD)/sfo.xml
+	$(SFO) --title "$(TITLE)" --appid "$(TITLE_ID)" -f $(BUILD)/sfo.xml $(BUILD)/pkg/PARAM.SFO
+	@cp $(ICON0) $(BUILD)/pkg/ICON0.PNG
+	@mkdir -p $(BUILD)/pkg/USRDIR/aw
+	@cp -a $(AW_PKG_DIR)/aw/. $(BUILD)/pkg/USRDIR/aw/
+	@mkdir -p $(BUILD)/pkg/USRDIR/discs
+	@printf '%s\n' \
+		'# KOF XI Atomiswave (packed ROM set bundled in the PKG)' \
+		'mode=packed' \
+		'fmem1=/dev_hdd0/game/$(TITLE_ID)/USRDIR/aw/kofxi/roms/ax3201p01.fmem1.dec' \
+		'rom_dir=/dev_hdd0/game/$(TITLE_ID)/USRDIR/aw/kofxi/roms' \
+		'flash=/dev_hdd0/data/NotDC-AW/aw/kofxi/aw_flash.bin' \
+		> $(BUILD)/pkg/USRDIR/discs/kofxi.aw
+	$(PKG) --contentid $(CONTENT_ID) $(BUILD)/pkg/ $(BUILD)/$(TARGET)_full.pkg
+	@echo "Done: $(BUILD)/$(TARGET)_full.pkg"
 
 clean:
 	@rm -rf $(BUILD)

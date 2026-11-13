@@ -13,7 +13,7 @@
 #include "ps3_execmem.h"
 #include "config/config.h"
 
-#define PROBE_LOG   "/dev_hdd0/data/NotDC/execprobe.log"
+#define PROBE_LOG   "/dev_hdd0/data/NotDC-AW/execprobe.log"
 #define PROBE_MAGIC 42
 #define PROBE_SIZE  (1024 * 1024)
 

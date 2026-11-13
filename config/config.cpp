@@ -1,4 +1,4 @@
-// Configuration system (NotDC.cfg): INI-style sections and key/value entries, loaded, overridden and saved here.
+// Configuration system (NotDC-AW.cfg): INI-style sections and key/value entries, loaded, overridden and saved here.
 // Virtual (command-line) values override the file and are not saved; the emu:* values are read-only.
 
 #define _CRT_SECURE_NO_DEPRECATE (1)
@@ -268,7 +268,7 @@ bool cfgOpen()
 	free(tmpPath);
 
 	if (cfgPath[0]==0)
-		sprintf(cfgPath,"%sNotDC.cfg", appPath);
+		sprintf(cfgPath,"%sNotDC-AW.cfg", appPath);
 
 	sprintf(dataPath,"%sdata/", appPath);
 	sprintf(pluginPath,"%splugins/", appPath);

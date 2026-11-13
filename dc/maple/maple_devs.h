@@ -11,6 +11,7 @@ enum MapleDeviceType
 	MDT_FishingRod,     // Sega Bass Fishing rod
 	MDT_FullController, // G12: 6 axes, the "Panther DC" controller
 	MDT_PuruPuru,       // P13: vibration pack
+	MDT_AwController,   // Atomiswave JAMMA pad (function 0x01000000)
 
 	MDT_Count
 };

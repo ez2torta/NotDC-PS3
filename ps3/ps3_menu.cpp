@@ -18,9 +18,13 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <io/pad.h>
+#include "ps3/ps3_aw.h"
+#include "ps3/ps3_aw_cheats.h"
 
-#define DATA_ROOT  "/dev_hdd0/data/NotDC/"
+#define DATA_ROOT  "/dev_hdd0/data/NotDC-AW/"
 #define DISCS_ROOT DATA_ROOT "discs/"
+// Files installed with the full PKG (read-only): a second browser device.
+#define PKG_ROOT   "/dev_hdd0/game/NOTDCAW01/USRDIR/"
 
 // nullDC.cpp and os_GetFile() read this; empty means boot the BIOS with no disc.
 extern char selectedFilePath[512];
@@ -202,6 +206,14 @@ static void scan_devices()
 	snprintf(s_dev[0].root, sizeof(s_dev[0].root), "%s", DISCS_ROOT);
 	s_dev_count = 1;
 
+	// The full PKG carries its own discs/ and aw/ under USRDIR; no FTP needed for that part.
+	if (s_dev_count < MAX_DEVICES && dir_exists(PKG_ROOT "discs/"))
+	{
+		snprintf(s_dev[s_dev_count].label, sizeof(s_dev[0].label), "ARCADE");
+		snprintf(s_dev[s_dev_count].root, sizeof(s_dev[0].root), "%s", PKG_ROOT "discs/");
+		s_dev_count++;
+	}
+
 	for (int i = 0; i < 7 && s_dev_count < MAX_DEVICES; i++)
 	{
 		char path[64];
@@ -234,9 +246,9 @@ static bool has_disc_extension(const char* name)
 	const char* dot = strrchr(name, '.');
 	if (!dot)
 		return false;
-	// Only what plugs/ImgReader reads: .gdi and .cue (iso9660.cpp), .cdi, .chd (chd.cpp) and .mds/.nrg (mds.cpp).
+	// Only what plugs/ImgReader reads, plus .elf and the Atomiswave .aw descriptor.
 	// A .mds pulls in its own .mdf and a .cue its .bin files, so those are not listed.
-	static const char* ext[] = { ".gdi", ".cue", ".cdi", ".chd", ".mds", ".nrg", ".elf", NULL };
+	static const char* ext[] = { ".gdi", ".cue", ".cdi", ".chd", ".mds", ".nrg", ".elf", ".aw", NULL };
 	for (int i = 0; ext[i]; i++)
 		if (strcasecmp(dot, ext[i]) == 0)
 			return true;
@@ -371,6 +383,9 @@ static const char* k_usbkb[]     = { "OFF", "PORT B", "PORT C", "PORT D", NULL }
 // PADMAP_* order (ps3_padmap.h).
 static const char* k_padmap[]    = { "NONE", "A", "B", "X", "Y", "START", "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT",
                                      "D-PAD RIGHT", "L TRIGGER", "R TRIGGER", NULL };
+// Atomiswave: the effective arcade button for each DC map slot (DC A/B/C/X/Y -> A/C/E/B/D).
+static const char* k_padmap_aw[] = { "NONE", "A", "C", "B", "D", "START", "UP", "DOWN", "LEFT",
+                                     "RIGHT", "COIN", "E", NULL };
 static const char* k_rttrb[]     = { "OLD", "FIXED", NULL };
 static const char* k_rttsize[]   = { "FB CLIP", "TILE CLIP", NULL };
 static const char* k_oldfly[]    = { "OLD", "FLYCAST", NULL };
@@ -423,11 +438,11 @@ static Option s_emu[] = {
 	{ "Advanced Mode",   &g_advanced_preset,      OPT_CHOICE, k_onoff,     0, 0,0,0, NULL,
 	  "ON shows every row of every page. OFF shows only the main options. Live.", 0, 1 },
 	{ "Game Settings",   &g_game_cfg_preset,      OPT_CHOICE, k_onoff,     0, 0,0,0, NULL,
-	  "ON: what you change after you pick a game, or in game, is for that game only (NotDC/config).", 0, 1 },
+	  "ON: what you change after you pick a game, or in game, is for that game only (NotDC-AW/config).", 0, 1 },
 	{ "Start UDP Listener", &g_udp_log,           OPT_CHOICE, k_onoff,     0, 0,0,0, NULL,
-	  "ON sends the log to the PC over UDP (port 18194) until NotDC quits. Each boot starts OFF. Live." },
+	  "ON sends the log to the PC over UDP (port 18194) until NotDC AW quits. Each boot starts OFF. Live." },
 	{ "Write Log",       &g_write_log_preset,     OPT_CHOICE, k_onoff,     0, 0,0,0, NULL,
-	  "ON saves the log to NotDC/NotDC.log (the run before: NotDC_prev.log). Send it with a bug report. Live.", 0, 1 },
+	  "ON saves the log to NotDC-AW/NotDC-AW.log (the run before: NotDC-AW_prev.log). Send it with a bug report. Live.", 0, 1 },
 	{ "Accuracy",        &g_accuracy_preset,      OPT_CHOICE, k_accuracy,  0, 0,0,0, NULL,
 	  "SH4 FPU and timing exactness. FAST is the PS3 default.", 0, 1 },
 	{ "SH4 Clock",       &g_sh4_clock_preset,     OPT_RANGE,  NULL,        0, 150,250,5, "%d MHz",
@@ -471,7 +486,7 @@ static Option s_emu[] = {
 	{ "JIT Exit",        &g_jit_exit_preset,      OPT_CHOICE, k_onoff,     0, 0,0,0, NULL,
 	  "The JIT loop returns on an XMB exit and saves the flash. Set before boot." },
 	{ "Config Repair",   &g_cfg_repair_preset,    OPT_CHOICE, k_onoff,     0, 0,0,0, NULL,
-	  "ON: at the next NotDC start, settings that froze old installs go to today's default, once (P120)." },
+	  "ON: at the next NotDC AW start, settings that froze old installs go to today's default, once (P120)." },
 };
 
 static Option s_audio[] = {
@@ -872,7 +887,7 @@ static Option s_screen[] = {
 	{ "Integer Scale",   &g_integer_scale_preset, OPT_CHOICE, k_onoff,     0, 0,0,0, NULL,
 	  "Sharp pixels at whole factors, black bars, not WIDE. 480 lines: 1x at 720p, 2x at 1080p. Live.", 0, 1 },
 	{ "Output 1080p",    &g_output_1080_preset,   OPT_CHOICE, k_onoff,     0, 0,0,0, NULL,
-	  "1080p if the TV has it, else 720p. Native Size OFF or WIDE: more RSX work. Next NotDC start.", 0, 1 },
+	  "1080p if the TV has it, else 720p. Native Size OFF or WIDE: more RSX work. Next NotDC AW start.", 0, 1 },
 };
 
 // Plan section 7, bundle 13: one row per item; the first value is the old path. Bundle 1's LMMODE, VRAM Direct and
@@ -1033,6 +1048,18 @@ static Option s_controls[] = {
 	{ "R3",              &g_pad_map[PADBTN_R3],       OPT_CHOICE, k_padmap, 0, 0,0,0, NULL, k_map_help },
 };
 
+// Built-in Atomiswave toggles. They apply from the next vblank and persist in [ps3].
+static Option s_aw[] = {
+	{ "Free Play",   &g_aw_freeplay,    OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
+	  "QUICK FREE flag: lets the game continue without a coin in some modes. Live.", 0, 1 },
+	{ "All Bosses",  &g_aw_all_bosses,  OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
+	  "Unlocks PS GAI, HAYATE, ADELHIDE, SILBER, JAZU, SHION and MAGAKI. Live.", 0, 1 },
+	{ "Same Chars",  &g_aw_same_chars,  OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
+	  "PS SAME: repeat a character inside the same team. Live.", 0, 1 },
+	{ "LDM Any",     &g_aw_ldm_any,     OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
+	  "L CMD FREE: any team member can use the LDM, not only the leader. Live.", 0, 1 },
+};
+
 struct Page
 {
 	const char* title;
@@ -1057,6 +1084,7 @@ static Page s_opt_pages[] = {
 	{ "MAPLE / VMU",   s_maple, (int)(sizeof(s_maple) / sizeof(s_maple[0])) },
 	{ "SH4 / SYSTEM",  s_sys,   (int)(sizeof(s_sys) / sizeof(s_sys[0])) },
 	{ "NETWORK",       s_net,   (int)(sizeof(s_net) / sizeof(s_net[0])) },
+	{ "ARCADE",        s_aw,    (int)(sizeof(s_aw) / sizeof(s_aw[0])) },
 };
 #define OPT_PAGE_COUNT   ((int)(sizeof(s_opt_pages) / sizeof(s_opt_pages[0])))
 #define CONTROLS_ROWS    ((int)(sizeof(s_controls) / sizeof(s_controls[0])))
@@ -1094,12 +1122,13 @@ static void option_text(const Option* o, char* out, size_t len)
 {
 	if (o->kind == OPT_CHOICE)
 	{
+		const char** names = (aw_pending() && o->names == k_padmap) ? k_padmap_aw : o->names;
 		int n = choice_count(o);
 		int idx = *o->val - o->base;
 		if (idx < 0 || idx >= n)
 			snprintf(out, len, "%d", *o->val);
 		else
-			snprintf(out, len, "%s", o->names[idx]);
+			snprintf(out, len, "%s", names[idx]);
 	}
 	else
 	{
@@ -1346,9 +1375,10 @@ static Screen browser_input(u32 pressed, bool swap)
 		}
 		else if (swap)
 		{
-			// An .elf is a program, not a disc.
+			// An .elf or .aw is a program, not a disc.
 			size_t n = strlen(f->path);
-			if (n > 4 && strcasecmp(f->path + n - 4, ".elf") == 0)
+			if ((n > 4 && strcasecmp(f->path + n - 4, ".elf") == 0) ||
+			    aw_descriptor_path(f->path))
 				return SCR_BROWSER;
 			snprintf(s_swap_path, sizeof(s_swap_path), "%s", f->path);
 			return SCR_LAUNCH;
@@ -1387,7 +1417,7 @@ static void browser_draw(bool swap)
 	char buf[256], cut[256], right[64];
 
 	snprintf(right, sizeof(right), "DEVICE: %s", s_dev[s_dev_cur].label);
-	draw_header(swap ? "CHANGE DISC" : "NotDC", right);
+	draw_header(swap ? "CHANGE DISC" : "NotDC AW", right);
 
 	float max_w = list_max_w();
 	ps3ui_text(s_mx, s_head_y + 10 + s_cap, PS3UI_FONT_BODY, COL_DIM,
@@ -1403,7 +1433,8 @@ static void browser_draw(bool swap)
 		for (int i = 0; i < ROWS_PER_PAGE && top + i < s_file_count; i++)
 		{
 			FileEntry* f = &s_files[top + i];
-			snprintf(buf, sizeof(buf), "%s%s", f->is_dir ? "[DIR]  " : "", f->name);
+			const char* tag = f->is_dir ? "[DIR]  " : aw_descriptor_path(f->name) ? "[AW]   " : "";
+			snprintf(buf, sizeof(buf), "%s%s", tag, f->name);
 			draw_row(i, top + i == s_sel, f->is_dir ? COL_DIR : COL_TEXT,
 			         fit(buf, max_w, cut, sizeof(cut)), NULL);
 		}
@@ -1619,7 +1650,7 @@ static Screen nobios_input(u32 pressed)
 static void nobios_draw()
 {
 	draw_header("BIOS NOT FOUND", NULL);
-	draw_row(0, false, COL_TEXT, "NotDC needs the Dreamcast BIOS file dc_boot.bin to start.", NULL);
+	draw_row(0, false, COL_TEXT, "NotDC AW needs the Dreamcast BIOS file dc_boot.bin to start.", NULL);
 	draw_row(1, false, COL_TEXT, "Copy it to " DATA_ROOT "data/ and start again.", NULL);
 	draw_footer(NULL, "O Back");
 }
@@ -1913,7 +1944,7 @@ int ps3_menu_run(void)
 		case SCR_NOBIOS:   scr = nobios_input(pressed); break;
 		default: break;
 		}
-		if (scr == SCR_LAUNCH && !bios_present())
+		if (scr == SCR_LAUNCH && !bios_present() && !aw_descriptor_path(selectedFilePath))
 		{
 			printf("[menu] no %sdata/dc_boot.bin, launch stopped\n", DATA_ROOT);
 			scr = SCR_NOBIOS;

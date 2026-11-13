@@ -3,6 +3,7 @@
 #include "maple_helper.h"
 #include "maple_devs.h"
 #include "maple_cfg.h"
+#include "ps3/ps3_aw.h"
 
 // Per-device input hooks, in ps3/ps3_input.cpp.
 void UpdateInputState(u32 port);        // Standard controller
@@ -71,7 +72,10 @@ struct MapleConfigMap : IMapleConfigMap
 		if (!dev)
 			return;
 
-		DispatchUpdateInputState(dev->bus_id);
+		if (aw_pending())
+			UpdateInputState(dev->bus_id);
+		else
+			DispatchUpdateInputState(dev->bus_id);
 
 		// Keyboard: caller passes nullptr — nothing else to fill in here.
 		if (!pjs)
@@ -159,7 +163,7 @@ static void mcfg_PlugBus(u32 bus)
 		mcfg_Create(MDT_Keyboard, bus, 5);
 		return;
 	}
-	MapleDeviceType ctrlType = mcfg_GetControllerDeviceType();
+	MapleDeviceType ctrlType = aw_pending() ? MDT_AwController : mcfg_GetControllerDeviceType();
 	bool isStandard = (ctrlType == MDT_SegaController || ctrlType == MDT_FullController);
 	mcfg_Create(ctrlType, bus, 5);
 

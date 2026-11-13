@@ -258,7 +258,7 @@ extern int g_modem_preset;
 extern int g_advanced_preset;
 // The Game Settings row: 1 = the options set after a game is picked are that game's own (config/<image>.cfg).
 extern int g_game_cfg_preset;
-// The Write Log row: 1 = the log also goes to /dev_hdd0/data/NotDC/NotDC.log.
+// The Write Log row: 1 = the log also goes to /dev_hdd0/data/NotDC-AW/NotDC-AW.log.
 extern int g_write_log_preset;
 // GOALS.md G18-G22 (user report fixes): one row each, on the page of the code it changes.
 extern int g_pt_aniso_preset, g_pad_reconnect_preset, g_gd_pio_ring_preset, g_swap_rules_preset;
@@ -271,7 +271,7 @@ extern int g_render_wait_preset, g_vmu_media_preset;
 
 // cfgOpen() must have run first.
 void ps3_presets_load(void);
-// With a game's settings open: NotDC.cfg gets the global values, the game's file its own.
+// With a game's settings open: NotDC-AW.cfg gets the global values, the game's file its own.
 void ps3_presets_save(void);
 // Game Settings: open puts the image's own values over the global ones; close saves them and puts the global ones back.
 void ps3_game_cfg_open(const char* image);

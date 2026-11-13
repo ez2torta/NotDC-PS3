@@ -11,6 +11,7 @@
 #include "plugins/plugin_manager.h"
 #include "cl/cl.h"
 #include "plugs/ImgReader/elf_loader.h"   // ELF boot support
+#include "ps3/ps3_aw.h"
 #include <time.h>
 
 // Frameskipping (preparation : working on it)
@@ -73,6 +74,8 @@ int RunDC()
 		// Only logged here: dc.cpp calls dc_elf_pre_run_hook() (below) between Reset() and Run() to write the PC.
 		printf("[nullDC.cpp] [ELF] Boot mode active – entry will be applied after CPU reset\n");
 	}
+	if (aw_pending())
+		printf("[nullDC.cpp] [AW] Atomiswave boot active – payload is loaded after mem_Reset()\n");
 
 	Start_DC();	//this call is blocking ...
 	
@@ -93,6 +96,22 @@ extern "C" void dc_elf_pre_run_hook()
 		bm_Reset();
 		sh4_cpu.ResetCache();
 	}
+}
+
+// Atomiswave direct boot: mem_Reset() has already zeroed RAM, so fmem1 is loaded here, not in main___().
+extern "C" void dc_aw_pre_run_hook()
+{
+	if (!aw_pending())
+		return;
+	if (!aw_boot())
+	{
+		printf("[AW] boot failed, staying at the reset vector\n");
+		return;
+	}
+
+	extern void bm_Reset();
+	bm_Reset();
+	sh4_cpu.ResetCache();
 }
 
 //////////////////////////////////////
@@ -117,37 +136,52 @@ int main___(int argc,char* argv[])
 
 	int rv= 0;
 
-	char* temp_path=GetEmuPath(_T("data/dc_boot.bin"));
-	printf("[nullDC] checking BIOS: %s\n", temp_path);
-	FILE* fr=fopen(temp_path,"r");
-	if (!fr)
+	// Atomiswave: parse the descriptor before the BIOS checks; the payload is loaded after mem_Reset().
+	extern char selectedFilePath[512];
+	if (aw_descriptor_path(selectedFilePath))
 	{
-		msgboxf(_T("Unable to find bios -- exiting\n%s"),MBX_ICONERROR,temp_path);
-		rv=-3;
-		goto cleanup;
+		if (!aw_prepare(selectedFilePath))
+		{
+			rv = -7;
+			goto cleanup;
+		}
+		printf("[AW] descriptor ready: %s\n", selectedFilePath);
 	}
-	fclose(fr);
-	printf("[nullDC] BIOS found OK\n");
-	free(temp_path);
 
-	temp_path=GetEmuPath(_T("data/dc_flash.bin"));
-	printf("[nullDC] checking flash: %s\n", temp_path);
-	fr=fopen(temp_path,"r");
-	// P85: with Flash Defaults at FLYCAST, LoadBiosFiles builds a flash when no file loads.
-	if (!fr && !get_flash_defaults_preset())
+	if (!aw_pending())
 	{
-		msgboxf(_T("Unable to find flash -- exiting\n%s"),MBX_ICONERROR,temp_path);
-		rv=-6;
-		goto cleanup;
-	}
-	if (fr)
-	{
+		char* temp_path=GetEmuPath(_T("data/dc_boot.bin"));
+		printf("[nullDC] checking BIOS: %s\n", temp_path);
+		FILE* fr=fopen(temp_path,"r");
+		if (!fr)
+		{
+			msgboxf(_T("Unable to find bios -- exiting\n%s"),MBX_ICONERROR,temp_path);
+			rv=-3;
+			goto cleanup;
+		}
 		fclose(fr);
-		printf("[nullDC] flash found OK\n");
+		printf("[nullDC] BIOS found OK\n");
+		free(temp_path);
+
+		temp_path=GetEmuPath(_T("data/dc_flash.bin"));
+		printf("[nullDC] checking flash: %s\n", temp_path);
+		fr=fopen(temp_path,"r");
+		// P85: with Flash Defaults at FLYCAST, LoadBiosFiles builds a flash when no file loads.
+		if (!fr && !get_flash_defaults_preset())
+		{
+			msgboxf(_T("Unable to find flash -- exiting\n%s"),MBX_ICONERROR,temp_path);
+			rv=-6;
+			goto cleanup;
+		}
+		if (fr)
+		{
+			fclose(fr);
+			printf("[nullDC] flash found OK\n");
+		}
+		else
+			printf("[nullDC] no dc_flash.bin, Flash Defaults is FLYCAST\n");
+		free(temp_path);
 	}
-	else
-		printf("[nullDC] no dc_flash.bin, Flash Defaults is FLYCAST\n");
-	free(temp_path);
 
 	printf("[nullDC] Loading plugins!\n");
 	while (!plugins_Load())
@@ -163,6 +197,7 @@ int main___(int argc,char* argv[])
 
 	// ELF detection: a selected .elf gets its segments loaded into emulated RAM now (memory reserved, plugins loaded);
 	// the PC override happens later, in dc_elf_pre_run_hook() after the CPU back-end reset.
+	if (!aw_pending())
 	{
 		// Read the selected path directly – we cannot use os_GetFile() here because
 		// we already patched it to return false for .elf files (to block the disc plugin).

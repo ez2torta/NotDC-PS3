@@ -381,6 +381,27 @@ void pvr_writereg_TA(u32 addr, u32 data, u32 sz)
     }
 }
 
+// Atomiswave BIOS case13 table (cable 1/3, TV/composite): the 20 PVR2 SPG/VO/FB registers.
+// Without these the game's first VSYNC poll never sees SPG_STATUS bit 0x2000.
+void pvr_aw_bios_init()
+{
+    static const struct { u32 addr; u32 value; } regs[] = {
+        { 0xA05F8044u, 0x00000000u }, { 0xA05F805Cu, 0x00000000u },
+        { 0xA05F80CCu, 0x01500104u }, { 0xA05F80D0u, 0x00000150u },
+        { 0xA05F80D4u, 0x007E0345u }, { 0xA05F80D8u, 0x020C0359u },
+        { 0xA05F80DCu, 0x00240204u }, { 0xA05F80E0u, 0x07D6C63Fu },
+        { 0xA05F80ECu, 0x000000A4u }, { 0xA05F80F0u, 0x00120012u },
+        { 0xA05F80E8u, 0x00160008u }, { 0xA05F80C8u, 0x03450000u },
+        { 0xA05F8068u, 0x027F0000u }, { 0xA05F806Cu, 0x01DF0000u },
+        { 0xA05F805Cu, 0x1413BD3Fu }, { 0xA05F804Cu, 0x000000A0u },
+        { 0xA05F8118u, 0x00008040u }, { 0xA05F80F4u, 0x00000401u },
+        { 0xA05F8048u, 0x00000001u }, { 0xA05F8044u, 0x00000000u },
+    };
+    for (u32 i = 0; i < sizeof(regs) / sizeof(regs[0]); i++)
+        libPvr_WriteReg(regs[i].addr, regs[i].value, 4);
+    printf("[awpvr] BIOS SPG/VO/FB init done\n");
+}
+
 // VRAM Access Functions (32-bit to 64-bit address conversion)
 // Holly Regs FLYCAST (P67, Flycast c5a42a57b): the byte at the 32-bit path's address; on big endian it is at ^ 3.
 u8 FASTCALL pvr_read_area1_8(u32 addr)

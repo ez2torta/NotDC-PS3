@@ -4,6 +4,7 @@
 #include "config/config.h"
 #include "ps3_presets.h"
 #include "ps3_padmap.h"
+#include "ps3_aw_cheats.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -298,8 +299,8 @@ int g_mmu_asidjtc_preset   = 0;   // 1 = with MMU Model FAST, the JTC of each re
 int g_modem_preset         = 1;   // 1 = Flycast's modem, no V.42, dials DCNet; a flash with no dial-up account gets Flycast's
 // First release: 0 shows only the main option rows, 1 every row.
 int g_advanced_preset      = 0;
-int g_game_cfg_preset      = 0;   // 1 = the options set after a game is picked go to config/<image>.cfg, not NotDC.cfg
-int g_write_log_preset     = 0;   // 1 = the log also goes to NotDC.log (ps3_main.cpp), for user bug reports
+int g_game_cfg_preset      = 0;   // 1 = the options set after a game is picked go to config/<image>.cfg, not NotDC-AW.cfg
+int g_write_log_preset     = 0;   // 1 = the log also goes to NotDC-AW.log (ps3_main.cpp), for user bug reports
 // GOALS.md G18-G22 (GitHub user reports): 0 is the old path in every one; a row is off until it is cleared on hardware.
 // G18 rows ON since 2026-10-24 (Matt), after the HW success.
 int g_pt_aniso_preset      = 1;   // 1 = punch-through textures get no anisotropic taps, as Flycast Vulkan/DX11 (P115, HW)
@@ -312,7 +313,7 @@ int g_list_init_keep_preset = 1;  // 1 = a TA_LIST_INIT keeps the stored lists u
 int g_jit_smc_preset       = 0;   // JIT self-modifying code guard: 0 = the known addresses, 1 = every RAM block (P124)
 int g_audio_starve_preset  = 0;   // a short sound queue: 1 = FADE, 2 = HYSTERESIS, 3 = STRETCH (P119)
 int g_cfg_repair_preset    = 0;   // 1 = at start, the keys proven fatal in old installs go to today's default once (P120)
-int g_cfg_rev              = 0;   // the NotDC.cfg revision those repairs reached (P120)
+int g_cfg_rev              = 0;   // the NotDC-AW.cfg revision those repairs reached (P120)
 int g_mmu_idle_x30_preset  = 0;   // 1 = with the MMU JIT, the idle rule AUTO stays at X30 (P107)
 int g_wince_hle_preset     = 0;   // 1 = Windows CE GetTickCount and QueryPerformanceCounter answered in the JIT (P108)
 int g_mmu_code_hash_preset = 0;   // 1 = an MMU code page hashes only the bytes its blocks read (P109)
@@ -615,9 +616,13 @@ static const CfgItem s_items[] = {
 	{ "RttAsync",      &g_rtt_async_preset },
 	{ "TaCtxSplit",    &g_ta_ctx_split_preset },
 	{ "KeepFrame",     &g_keep_frame_preset },
+	{ "AwFreePlay",    &g_aw_freeplay },
+	{ "AwAllBosses",   &g_aw_all_bosses },
+	{ "AwSameChars",   &g_aw_same_chars },
+	{ "AwLdmAny",      &g_aw_ldm_any },
 };
 
-// P120 (row Config Repair): an install keeps NotDC.cfg, so each revision puts its fatal keys back at today's default
+// P120 (row Config Repair): an install keeps NotDC-AW.cfg, so each revision puts its fatal keys back at today's default
 // once (Matt picks them). Revision 1: RTT Read-back OLD never returns (P75, Grandia II).
 #define CFG_REV 1
 static const struct { int rev; int* val; } k_cfg_fixes[] = {
@@ -647,7 +652,7 @@ void ps3_presets_load(void)
 #define ITEM_COUNT (sizeof(s_items) / sizeof(s_items[0]))
 // misc/gamecfg_check sets a folder of its own.
 #ifndef GAME_CFG_DIR
-#define GAME_CFG_DIR "/dev_hdd0/data/NotDC/config"
+#define GAME_CFG_DIR "/dev_hdd0/data/NotDC-AW/config"
 #endif
 
 // Game Settings: while on, the g_* variables hold the picked image's values and global[] the global ones.

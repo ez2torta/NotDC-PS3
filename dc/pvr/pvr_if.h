@@ -137,6 +137,8 @@ void pvr_Term();
  * @param Manual True if user-initiated reset, false for automatic reset
  */
 void pvr_Reset(bool Manual);
+// Atomiswave direct boot: the SPG/VO/FB registers the AW BIOS leaves before the game entry.
+void pvr_aw_bios_init();
 
 /**
  * Update PVR state for given number of cycles

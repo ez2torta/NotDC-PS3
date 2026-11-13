@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-#define SHOT_DIR "/dev_hdd0/data/NotDC/screenshots/"
+#define SHOT_DIR "/dev_hdd0/data/NotDC-AW/screenshots/"
 // libpng and libc's setjmp use the AltiVec 512-byte jmp_buf; ours (-mno-altivec) is 256 (see ps3_ui.cpp).
 #define PNG_JMPBUF_SIZE 512
 

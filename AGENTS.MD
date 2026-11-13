@@ -20,7 +20,7 @@ PSL1GHT SDK (ppu-gcc and spu-gcc 7.2.0). It started from nullDC4Wii (nullDC-v1 c
 - SH4: interpreter plus a PPC JIT on the PPE (`dc/sh4/rec_v2/` front end, `ps3/ps3_driver.cpp` back end).
 - PVR2: TA decode in `plugs/drkPvr/`, draw in `ps3/ps3_rend.cpp` through ps3gl (GL 1.1 on the RSX).
 - AICA, ARM7, texture decode, texture hash, vertex build: SPE programs in `ps3/spu/`.
-- Title ID `NOTDC0000`. Data folder `/dev_hdd0/data/NotDC/` (settings in `NotDC.cfg`, `[ps3]` section).
+- Title ID `NOTDCAW01`. Data folder `/dev_hdd0/data/NotDC-AW/` (settings in `NotDC-AW.cfg`, `[ps3]` section).
 
 ## Commands
 
@@ -28,8 +28,9 @@ Run from Git Bash in the repo root, with Docker Desktop on.
 
 | Command | Result |
 |---|---|
-| `./build.sh` | `build/notdc_ps3.elf` |
-| `./build.sh pkg` | `build/notdc_ps3.pkg`, the file for HW tests |
+| `./build.sh` | `build/notdc_aw_ps3.elf` |
+| `./build.sh pkg` | `build/notdc_aw_ps3.pkg`, the file for HW tests |
+| `./build.sh pkg-full` | `build/notdc_aw_ps3_full.pkg`, packed KOF XI set from `misc/aw_pkg` |
 | `./build.sh self` | `build/EBOOT.BIN` |
 | `./build.sh clean` | Deletes `build/` |
 | `./build.sh pkg LOG_IP=<PC IP>` | Sends the UDP log to that PC, port 18194 |
@@ -38,8 +39,8 @@ Run from Git Bash in the repo root, with Docker Desktop on.
 TOC size. Run it after each package and report the value:
 
 ```sh
-MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/src" -w /src ps3dev-latest:latest ppu-readelf -S -W build/notdc_ps3.elf | grep ' .got '
-MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/src" -w /src ps3dev-latest:latest ppu-nm build/notdc_ps3.elf | grep -c r2off
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/src" -w /src ps3dev-latest:latest ppu-readelf -S -W build/notdc_aw_ps3.elf | grep ' .got '
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/src" -w /src ps3dev-latest:latest ppu-nm build/notdc_aw_ps3.elf | grep -c r2off
 ```
 
 PC checks. There is no unit test suite. The checks in `misc/` are the tests. They are local only: `.gitignore` keeps
@@ -73,7 +74,7 @@ CI (`.github/workflows/build.yml`) builds the package on each push with the same
 | `ps3/spu/` | SPU programs, linked into the ELF with `bin2s` |
 | `emitter/PPCEmit/` | PPC instruction encoders (`ppc_emit.h`, `ppc_emitter.h`) |
 | `deps/` | chdr, LZMA, FLAC: upstream files, unchanged. Do not edit |
-| `config/` | `NotDC.cfg` reader and writer |
+| `config/` | `NotDC-AW.cfg` reader and writer |
 | `misc/` | Local only: PC checks (`*_check/`), SPU simulator (`spu_sim/`). Git tracks only `fsca-table.bin` |
 | `assets/`, `icon/` | Menu art and XMB icon, linked with `.incbin` |
 | `.github/` | CI build, issue template, compatibility page |
@@ -86,7 +87,7 @@ Code comments name old plan items (`P1`-`P105`, `bundle N`, `G1`-`G16`). The pla
 
 1. Build the package. Report the `.got` size and any edit by another session (see below).
 2. Give numbered HW steps: the game, where to go in the game, and what to look for.
-3. List every menu option that the test needs, not only the changed one. An install keeps the old `NotDC.cfg`.
+3. List every menu option that the test needs, not only the changed one. An install keeps the old `NotDC-AW.cfg`.
 4. Stop and wait for the result. Do not start the UDP listener (port 18194) until the user asks for it.
 
 Rules:
@@ -171,7 +172,7 @@ Each of these cost one or more HW runs. A fault kills only the faulting thread, 
 - Commit or push only when asked. Commit titles are short (`Network`, `Shenmue fixes`).
 - No AI attribution: no `Co-Authored-By` line, no AI text in commits or PR descriptions.
 - Never commit BIOS files, flash dumps, disc images or secrets.
-- `.gitignore` keeps out build output, `misc/`, the old plan files, `NotDC.cfg`, BIOS and disc images, archives and
+- `.gitignore` keeps out build output, `misc/`, the old plan files, `NotDC-AW.cfg`, BIOS and disc images, archives and
   editor files. Never force-add them (`git add -f`).
 - Do not move or rename `misc/fsca-table.bin`. `ps3/ps3_fsca_table.S` links it, and CI builds from a fresh clone.
 - `README.md` is for users. Write it in Simplified Technical English (ASD-STE100).

@@ -13,6 +13,8 @@
 #include "ps3/ps3_stall.h"
 #include "ps3/ps3_gdasync.h"
 #include "ps3/ps3_sfres.h"
+#include "ps3/ps3_aw.h"
+#include "dc/aw/aw_cart.h"
 #include "ps3_timebase.h"
 
 // SCHED preset: the GD-DMA end IRQ goes through the deadline scheduler,
@@ -1482,6 +1484,8 @@ static u32 gd_dma_ticks()
 //is this needed ?
 void UpdateGDRom()
 {
+	if (aw_active())
+		return;
 	StallScope st_(ST_GDDMA);
 	if(!(SB_GDST&1) || !(SB_GDEN &1))
 		return;
@@ -1621,9 +1625,91 @@ void UpdateGDRom()
 	if (real && moved)
 		gd_dma_wait=gd_dma_ticks();
 }
+// Atomiswave G1 DMA: the cart is the source, 32-byte blocks, and the transfer completes inline.
+// The game only waits for the end IRQ, so a fast copy is safe here.
+void aw_dma_start(u32 data)
+{
+	if ((SB_GDEN & 1) == 0)
+		return;
+	SB_GDST |= data & 1;
+	if ((SB_GDST & 1) == 0)
+		return;
+
+	const u32 dest = SB_GDSTAR & 0x1FFFFFE0u;
+	const u32 phys = dest & 0x1FFFFFFFu;
+	if (phys < 0x0C000000u || phys >= 0x10000000u)
+	{
+		printf("[awdma] rejected dest=%08X len=%X\n", dest, SB_GDLEN);
+		aw_trace("[awdma] rejected dest=%08X len=%X", dest, SB_GDLEN);
+		SB_GDST = 0;
+		return;
+	}
+	const u32 room = 0x01000000u - (phys & 0x00FFFFFFu);
+	u32 len = SB_GDLEN;
+	if (len > room)
+	{
+		printf("[awdma] capped len=%X to %X at dest=%08X\n", len, room, dest);
+		aw_trace("[awdma] capped len=%X to %X dest=%08X", len, room, dest);
+		len = room;
+	}
+	static unsigned s_aw_dma_log;
+	if (s_aw_dma_log < 32)
+	{
+		aw_trace("[awdma] #%u dest=%08X len=%X", s_aw_dma_log, dest, len);
+		s_aw_dma_log++;
+	}
+	SB_GDSTARD = dest;
+	SB_GDLEND = 0;
+	aw_cart_dma_begin(dest, len);
+
+	u32 moved = 0;
+	while (moved < len)
+	{
+		u8 buf[32];
+		u32 want = len - moved;
+		if (want > sizeof(buf))
+			want = sizeof(buf);
+		u32 n = aw_cart_dma_read(buf, want);
+		if (n == 0)
+			break;
+
+		u32 i = 0;
+		for (; i + 4 <= n; i += 4)
+		{
+			const u32 v = (u32)buf[i] | ((u32)buf[i + 1] << 8) |
+			              ((u32)buf[i + 2] << 16) | ((u32)buf[i + 3] << 24);
+			WriteMem32_nommu(dest + moved + i, v);
+		}
+		if (i + 2 <= n)
+		{
+			WriteMem16_nommu(dest + moved + i, (u16)((u16)buf[i] | ((u16)buf[i + 1] << 8)));
+			i += 2;
+		}
+		if (i < n)
+			WriteMem8_nommu(dest + moved + i, buf[i]);
+		moved += n;
+	}
+
+	SB_GDLEND = moved;
+	SB_GDST = 0;
+	asic_RaiseInterrupt(holly_GDROM_DMA);
+}
+
+void aw_dma_enable(u32 data)
+{
+	SB_GDEN = data & 1;
+	if (!(SB_GDEN & 1) && (SB_GDST & 1))
+		SB_GDST = 0;
+}
+
 //Dma Start
 void GDROM_DmaStart(u32 data)
 {
+	if (aw_active())
+	{
+		aw_dma_start(data);
+		return;
+	}
 	if (SB_GDEN==0)
 	{
 		if (get_debug_gdrom()) printf("Invalid GD-DMA start, SB_GDEN=0.Ingoring it.\n");
@@ -1654,6 +1740,11 @@ void GDROM_DmaStart(u32 data)
 
 void GDROM_DmaEnable(u32 data)
 {
+	if (aw_active())
+	{
+		aw_dma_enable(data);
+		return;
+	}
 	SB_GDEN=data&1;
 	if (SB_GDEN==0 && SB_GDST==1)
 	{

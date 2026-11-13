@@ -20,7 +20,7 @@ jobs:
       run: |
         printf '%s\n' "sha8=$(printf '%s\n' ${GITHUB_SHA} | cut -c1-8)" >> $GITHUB_OUTPUT
 
-    - name: Build NotDC-PS3 Emulator Package
+    - name: Build NotDC AW PS3 Emulator Package
       run: |
         make
         make pkg
@@ -28,6 +28,6 @@ jobs:
     - name: Push package artifact
       uses: actions/upload-artifact@v4
       with:
-        name: notdc-ps3-build_${{ steps.slug.outputs.sha8 }}
-        path: build/notdc_ps3.pkg
+        name: notdc-aw-ps3-build_${{ steps.slug.outputs.sha8 }}
+        path: build/notdc_aw_ps3.pkg
         if-no-files-found: error
