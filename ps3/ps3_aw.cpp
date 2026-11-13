@@ -296,3 +296,16 @@ void aw_save_flash()
 {
 	aw_flash_save();
 }
+
+extern "C" void ps3_close_game();
+void mem_SaveFlash();
+
+bool aw_on_system_reset()
+{
+	if (!g_aw_active)
+		return false;
+	aw_trace("[aw] system reset requested by the game: saving flash, back to the menu\n");
+	mem_SaveFlash();
+	ps3_close_game();
+	return true;
+}

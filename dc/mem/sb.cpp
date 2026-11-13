@@ -1,5 +1,6 @@
 //System bus registers
 
+#include "ps3/ps3_aw.h"
 #include "types.h"
 #include "sb.h"
 #include "dc/dc.h"
@@ -509,6 +510,8 @@ void SB_SFRES_write32(u32 data)
 	if ((u16)data == 0x7611)
 	{
 		printf("SB/HOLLY : System reset requested\n");
+		if (aw_on_system_reset())
+			return;
 		if (sfres_dump)
 			sfres_dump(0);
 		HollySoftReset();

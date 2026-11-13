@@ -19,5 +19,7 @@ void aw_input_save();
 void aw_input_set(int player, int c, int b);
 // Active-low DC pad word of the player from the DS3 travel of each button (PADBTN_COUNT entries).
 u16  aw_input_kcode(int player, const unsigned char* ana);
+// Holds TEST on player 1 for the next polls (the Test menu entries and the first seconds of a boot).
+void aw_input_test_hold(int polls);
 // Bit c set: control c is held now (for the live readout).
 u32  aw_input_held(int player, u32 ds3_bits);

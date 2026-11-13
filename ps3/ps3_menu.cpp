@@ -22,6 +22,8 @@
 #include "ps3/ps3_aw_cheats.h"
 #include "ps3/ps3_menu_ui.h"
 #include "ps3/ps3_aw_remap.h"
+#include "ps3/ps3_aw_mini.h"
+#include "ps3/ps3_aw_input.h"
 
 #define DATA_ROOT  "/dev_hdd0/data/NotDC-AW/"
 #define DISCS_ROOT DATA_ROOT "discs/"
@@ -1578,6 +1580,12 @@ static Screen aw_home_input(u32 pressed)
 		aw_home_pick();
 		return SCR_LAUNCH;
 	}
+	else if (pressed & MB_R1)
+	{
+		aw_home_pick();
+		aw_input_test_hold(240);
+		return SCR_LAUNCH;
+	}
 	else if (pressed & MB_SQUARE)
 	{
 		aw_remap_open();
@@ -1606,7 +1614,7 @@ static void aw_home_draw()
 	for (int i = 0; i < s_aw_count; i++)
 		draw_row(i, i == s_aw_sel, COL_TEXT, s_aw_games[i].title, NULL);
 	draw_footer(fit(s_aw_games[s_aw_sel].path, list_max_w(), cut, sizeof(cut)),
-	            "X Play   [] Buttons   START Options   /\\ Browse files   SELECT Quit");
+	            "X Play   [] Buttons   R1 Test menu   START Options   /\\ Files   SELECT Quit");
 }
 
 // Puts the cursor on a shown page and row, then gives that page's shown rows. Page 0 always shows Advanced Mode.
@@ -1963,11 +1971,15 @@ void ps3_menu_ingame(void)
 		bool shot = false;
 		// G15: START asks; X there closes the game, O goes back to the options.
 		bool ask_close = false, close_game = false;
+		// Atomiswave: a mini menu first; 0 mini, 1 buttons, 2 the emulator's pages.
+		int awm = aw_active() ? 0 : 2;
+		bool test_menu = false;
+		aw_mini_open();
 		s_swap_path[0] = '\0';
 		while (!ps3_exit_pending())
 		{
 			u32 pressed = pad_poll(16);
-			if (pressed & MB_SELECT)
+			if ((pressed & MB_SELECT) && awm != 1)
 				break;
 			if (ask_close)
 			{
@@ -1978,16 +1990,50 @@ void ps3_menu_ingame(void)
 					ask_close = false;
 				pressed = 0;
 			}
-			shot = !swap && (pressed & MB_SQUARE);
+			shot = awm == 2 && !swap && (pressed & MB_SQUARE);
 			if (shot)
 				break;
-			if (swap)
+			if (awm == 0 && !ask_close)
+			{
+				const int a = aw_mini_input(pressed);
+				if (a == AWM_CONTINUE)
+					break;
+				if (a == AWM_TEST)
+				{
+					test_menu = true;
+					break;
+				}
+				if (a == AWM_BUTTONS)
+				{
+					aw_remap_open();
+					awm = 1;
+				}
+				else if (a == AWM_CHEATS || a == AWM_ADVANCED)
+				{
+					if (a == AWM_CHEATS)
+						for (int pg = 0; pg < OPT_PAGE_COUNT; pg++)
+							if (strcmp(s_opt_pages[pg].title, "ARCADE") == 0)
+								s_opt_page = pg;
+					s_opt_row = 0;
+					awm = 2;
+				}
+				else if (a == AWM_CLOSE)
+					ask_close = true;
+			}
+			else if (awm == 1 && !ask_close)
+			{
+				if (aw_remap_input(pressed))
+					awm = 0;
+			}
+			else if (swap)
 			{
 				Screen r = browser_input(pressed, true);
 				if (r == SCR_LAUNCH)
 					break;
 				swap = r == SCR_BROWSER;
 			}
+			else if (awm == 2 && aw_active() && (pressed & MB_CIRCLE))
+				awm = 0;
 			else if ((pressed & MB_TRIANGLE) && g_disc_swap_preset)
 			{
 				if (!s_files)
@@ -2004,6 +2050,10 @@ void ps3_menu_ingame(void)
 			{
 				if (ask_close)
 					close_draw();
+				else if (awm == 0)
+					aw_mini_draw();
+				else if (awm == 1)
+					aw_remap_draw();
 				else if (swap)
 					browser_draw(true);
 				else
@@ -2050,6 +2100,8 @@ void ps3_menu_ingame(void)
 			gdrom_disc_swap(s_swap_path);
 		if (shot)
 			ps3rend_screenshot();
+		if (test_menu)
+			aw_input_test_hold(120);
 		// G15: the presets are saved above; the monitor thread stops the SH4 as at an XMB exit, then NotDC starts again.
 		if (close_game)
 			ps3_close_game();

@@ -15,6 +15,9 @@ bool aw_prepare(const char* descriptor);
 bool aw_boot();
 void aw_shutdown();
 void aw_save_flash();
+// SB_SFRES 0x7611 while an AW game runs (the test menu asks for a reboot): saves the flashes and goes back
+// to the menu. false: not an AW run, the caller does the Holly reset.
+bool aw_on_system_reset();
 
 void aw_dma_start(u32 data);
 void aw_dma_enable(u32 data);

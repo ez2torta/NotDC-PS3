@@ -375,6 +375,16 @@ Cuadrado en el inicio abre BOTONES; moneda compartida (P1 o P2); Players = 2 com
 izquierdo tambien da direcciones. Pendiente de F9.2: abrir BOTONES desde el menu pausa (va con el mini menu de
 F9.3), presets "FIGHT PAD" y "Insertar moneda al pulsar START". `.got`: 912 bytes libres.
 
+**Estado F9.3 (2026-11-13, sin prueba en HW):** hecho el mini menu en juego (`ps3/ps3_aw_mini.*`: Continuar,
+Botones, Test menu, Cheats, Opciones avanzadas, Cerrar juego; SELECT sigue cerrando el menu) y `R1 Test menu` en la
+pantalla de inicio (TEST sostenido ~240 lecturas del pad al arrancar; en juego ~120 al cerrar el menu).
+**Hallazgo clave:** el test menu del juego guarda en las flashes que NotDC ya persiste (`aw_flash.bin` y
+`dc_flash_wb.bin`; `mem_SaveFlash`), asi que FREE PLAY *persiste sin decodificar el flag*. Pero al salir con
+SAVE&EXIT el juego escribe `0x7611` en `SB_SFRES` pidiendo reinicio, y NotDC solo hacia un reset de perifericos con la
+CPU corriendo (cuelgue). Ahora, en modo AW, ese reset guarda ambas flashes y vuelve al menu de juegos
+(`aw_on_system_reset`); hay que pulsar X para volver a entrar. Pendiente: atajo START+SELECT 2 s, probar en HW que TEST
+sostenido abre el test menu (si solo se lee en el titulo, ajustar el momento), y reinicio directo sin pasar por el menu.
+
 **F9.3 Test menu y mini menu en juego**
 
 - Pantalla de inicio: accion **Test menu** arranca KOF XI con TEST pulsado ~120 frames (con la placa viendo
