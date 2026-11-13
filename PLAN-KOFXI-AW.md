@@ -369,6 +369,12 @@ queda en Settings; el mini menu START+SELECT se hace; los ajustes del test menu 
 - Traza opt-in `[awpad] p=%d cond=%04X`. Criterio: dos DS3 juegan; P1 y P2 remapean A-E, START y COIN en menos
   de 30 s cada uno, sin salir del juego.
 
+**Estado F9.1/F9.2 (2026-11-13, sin prueba en HW):** pantalla de inicio AW y pantalla BOTONES hechas
+(`ps3/ps3_aw_input.*` mapa por jugador `AwP1A`.. en la cfg, `ps3/ps3_aw_remap.*` pantalla, `ps3_menu_ui.h`).
+Cuadrado en el inicio abre BOTONES; moneda compartida (P1 o P2); Players = 2 como minimo en modo AW; el stick
+izquierdo tambien da direcciones. Pendiente de F9.2: abrir BOTONES desde el menu pausa (va con el mini menu de
+F9.3), presets "FIGHT PAD" y "Insertar moneda al pulsar START". `.got`: 912 bytes libres.
+
 **F9.3 Test menu y mini menu en juego**
 
 - Pantalla de inicio: accion **Test menu** arranca KOF XI con TEST pulsado ~120 frames (con la placa viendo

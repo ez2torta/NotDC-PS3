@@ -20,6 +20,8 @@
 #include <io/pad.h>
 #include "ps3/ps3_aw.h"
 #include "ps3/ps3_aw_cheats.h"
+#include "ps3/ps3_menu_ui.h"
+#include "ps3/ps3_aw_remap.h"
 
 #define DATA_ROOT  "/dev_hdd0/data/NotDC-AW/"
 #define DISCS_ROOT DATA_ROOT "discs/"
@@ -41,17 +43,12 @@ extern int g_udp_log;         // ps3_main.cpp
 
 // -- Pad ---------------------------------------------------------------------
 
-enum {
-	MB_UP = 1, MB_DOWN = 2, MB_LEFT = 4, MB_RIGHT = 8,
-	MB_CROSS = 16, MB_CIRCLE = 32, MB_TRIANGLE = 64, MB_SQUARE = 128,
-	MB_L1 = 256, MB_R1 = 512, MB_START = 1024, MB_SELECT = 2048,
-};
-
 #define STICK_THRESHOLD 96
 #define REPEAT_FIRST_MS 400
 #define REPEAT_NEXT_MS   90
 
 static u32 s_pad_prev;
+static u32 s_ds3[MAX_PORT_NUM];   // PADBTN_* bits held on each port, from the last pad_poll_raw
 static u32 s_repeat_mask;
 static u32 s_repeat_ms;
 
@@ -111,6 +108,12 @@ static u32 pad_poll_raw()
 			       d.BTN_LEFT, d.BTN_DOWN, d.BTN_RIGHT, d.BTN_UP, d.BTN_START,
 			       d.BTN_SQUARE, d.BTN_CROSS, d.BTN_CIRCLE, d.BTN_TRIANGLE);
 		}
+		s_ds3[i] = (d.BTN_CROSS << PADBTN_CROSS) | (d.BTN_CIRCLE << PADBTN_CIRCLE) |
+		           (d.BTN_SQUARE << PADBTN_SQUARE) | (d.BTN_TRIANGLE << PADBTN_TRIANGLE) |
+		           (d.BTN_START << PADBTN_START) | (d.BTN_UP << PADBTN_UP) | (d.BTN_DOWN << PADBTN_DOWN) |
+		           (d.BTN_LEFT << PADBTN_LEFT) | (d.BTN_RIGHT << PADBTN_RIGHT) | (d.BTN_L1 << PADBTN_L1) |
+		           (d.BTN_R1 << PADBTN_R1) | ((d.BTN_L2 || d.PRE_L2) << PADBTN_L2) |
+		           ((d.BTN_R2 || d.PRE_R2) << PADBTN_R2) | (d.BTN_L3 << PADBTN_L3) | (d.BTN_R3 << PADBTN_R3);
 		if (d.BTN_UP)       b |= MB_UP;
 		if (d.BTN_DOWN)     b |= MB_DOWN;
 		if (d.BTN_LEFT)     b |= MB_LEFT;
@@ -1291,6 +1294,26 @@ static void draw_row(int slot, bool selected, u32 color, const char* left,
 }
 
 // Trims from the left, so the tail that identifies a long path stays visible.
+void ps3m_header(const char* title, const char* right) { draw_header(title, right); }
+void ps3m_footer(const char* help, const char* keys) { draw_footer(help, keys); }
+void ps3m_row(int slot, bool selected, bool dim, const char* left, const char* right)
+{
+	draw_row(slot, selected, dim ? COL_DIM : COL_TEXT, left, right);
+}
+
+// The PADBTN_* bits of the player's pad: players take the connected pads in port order.
+int ps3m_pad_raw(int player)
+{
+	padInfo info;
+	if (ioPadGetInfo(&info) != 0)
+		return -1;
+	int seen = 0;
+	for (int i = 0; i < MAX_PORT_NUM; i++)
+		if (info.status[i] && seen++ == player)
+			return (int)s_ds3[i];
+	return -1;
+}
+
 static const char* fit(const char* s, float max_w, char* buf, size_t len)
 {
 	if (ps3ui_text_w(PS3UI_FONT_BODY, s) <= max_w)
@@ -1317,11 +1340,10 @@ static float list_max_w()
 
 // -- Screens -----------------------------------------------------------------
 
-enum Screen { SCR_BROWSER, SCR_OPTIONS, SCR_CONTROLS, SCR_LAUNCH, SCR_QUIT, SCR_NOBIOS, SCR_AWHOME };
+enum Screen { SCR_BROWSER, SCR_OPTIONS, SCR_CONTROLS, SCR_LAUNCH, SCR_QUIT, SCR_NOBIOS, SCR_AWHOME, SCR_AWBTN };
 
 // Atomiswave home: the options and controls screens return here when the game came from it.
 static bool s_home_origin;
-static bool s_ctl_direct;   // CONTROLS opened straight from the home: O goes back to it
 
 static int s_sel;      // browser selection
 static int s_opt_page;
@@ -1558,9 +1580,8 @@ static Screen aw_home_input(u32 pressed)
 	}
 	else if (pressed & MB_SQUARE)
 	{
-		aw_home_pick();
-		s_ctl_direct = true;
-		return SCR_CONTROLS;
+		aw_remap_open();
+		return SCR_AWBTN;
 	}
 	else if (pressed & MB_START)
 	{
@@ -1585,7 +1606,7 @@ static void aw_home_draw()
 	for (int i = 0; i < s_aw_count; i++)
 		draw_row(i, i == s_aw_sel, COL_TEXT, s_aw_games[i].title, NULL);
 	draw_footer(fit(s_aw_games[s_aw_sel].path, list_max_w(), cut, sizeof(cut)),
-	            "X Play   [] Controls   START Options   /\\ Browse files   SELECT Quit");
+	            "X Play   [] Buttons   START Options   /\\ Browse files   SELECT Quit");
 }
 
 // Puts the cursor on a shown page and row, then gives that page's shown rows. Page 0 always shows Advanced Mode.
@@ -1724,15 +1745,7 @@ static Screen controls_input(u32 pressed)
 	else if (pressed & (MB_CROSS | MB_START))
 		return SCR_LAUNCH;
 	else if (pressed & MB_CIRCLE)
-	{
-		if (s_ctl_direct)
-		{
-			s_ctl_direct = false;
-			ps3_game_cfg_close();
-			return SCR_AWHOME;
-		}
 		return SCR_OPTIONS;
-	}
 
 	return SCR_CONTROLS;
 }
@@ -2093,6 +2106,7 @@ int ps3_menu_run(void)
 		switch (scr)
 		{
 		case SCR_AWHOME:   scr = aw_home_input(pressed);  break;
+		case SCR_AWBTN:    scr = aw_remap_input(pressed) ? SCR_AWHOME : SCR_AWBTN;  break;
 		case SCR_BROWSER:  scr = browser_input(pressed, false);  break;
 		case SCR_OPTIONS:  scr = options_input(pressed);  break;
 		case SCR_CONTROLS: scr = controls_input(pressed); break;
@@ -2110,6 +2124,7 @@ int ps3_menu_run(void)
 			switch (scr)
 			{
 			case SCR_AWHOME:   aw_home_draw();  break;
+			case SCR_AWBTN:    aw_remap_draw();  break;
 			case SCR_BROWSER:  browser_draw(false);  break;
 			case SCR_OPTIONS:  options_draw();  break;
 			case SCR_CONTROLS: controls_draw(); break;

@@ -5,6 +5,8 @@
 #include "ps3_presets.h"
 #include "ps3_padmap.h"
 #include "ps3_aw_cheats.h"
+#include "ps3_aw_input.h"
+#include "ps3_aw.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -647,6 +649,7 @@ void ps3_presets_load(void)
 				*k_cfg_fixes[i].val = s_cfg_def.def[i];
 		g_cfg_rev = CFG_REV;
 	}
+	aw_input_load();
 }
 
 #define ITEM_COUNT (sizeof(s_items) / sizeof(s_items[0]))
@@ -1170,7 +1173,7 @@ int get_audio_buffers_preset() { return g_audio_buffers_preset; }
 int get_exit_fix_preset()      { return g_exit_fix_preset; }
 // maple_cfg's device number: 1-4 are devices the PS3 port does not drive, so the full controller is 5 (G12).
 int get_controller_type()      { return g_controller_type == 1 ? 5 : 0; }
-int get_player_count()         { return g_player_count; }
+int get_player_count()         { return aw_pending() && g_player_count < 2 ? 2 : g_player_count; }
 // G15: maple_cfg.cpp and maple_devs.cpp read these at each device they make.
 int get_slot_dev_preset(u32 slot) { return slot < 8 ? g_slot_dev_preset[slot] : 0; }
 int get_vmu_page_preset()      { return g_vmu_page_preset; }

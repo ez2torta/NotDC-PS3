@@ -1,6 +1,6 @@
 #include "dc/aw/aw_board.h"
 
-// ps3_input.cpp: active-low DC pad state. L1/L2 drive DC D (bit 11), which Flycast uses as the coin.
+// ps3_input.cpp (players 1 and 2): active-low DC pad state. L1/L2 drive DC D (bit 11), which Flycast uses as the coin.
 extern u16 kcode[4];
 
 static u32 s_maple_devs;
@@ -18,7 +18,7 @@ void aw_board_reset()
 
 static void coin_update()
 {
-	const bool pressed = (kcode[0] & (1u << 11)) == 0;
+	const bool pressed = ((kcode[0] & kcode[1]) & (1u << 11)) == 0;   // either player: shared credit
 	if (pressed && !s_coin_latch)
 	{
 		s_coin_latch = true;

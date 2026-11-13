@@ -89,6 +89,8 @@ $(BUILD)/ps3/ps3_rsxd.o: CXXFLAGS += -mminimal-toc
 $(BUILD)/ps3/ps3_sfres.o: CXXFLAGS += -mminimal-toc
 # Atomiswave loader/cart/devices: cold path, own tables and texts.
 $(BUILD)/ps3/ps3_aw.o: CXXFLAGS += -mminimal-toc
+$(BUILD)/ps3/ps3_aw_input.o: CXXFLAGS += -mminimal-toc
+$(BUILD)/ps3/ps3_aw_remap.o: CXXFLAGS += -mminimal-toc
 $(BUILD)/dc/aw/%.o: CXXFLAGS += -mminimal-toc
 
 # --no-multi-toc: a split TOC emits r2off stubs that hang the PS3 at boot.
