@@ -8,3 +8,5 @@ void aw_mini_open();
 int  aw_mini_input(u32 pressed);   // the row picked with X, else AWM_NONE
 void aw_mini_draw();
 const char* aw_credit_line();   // who NotDC AW is based on, shown on the AW home
+const char* aw_credits_label();   // the home row that opens the credits
+void aw_credits_draw();

@@ -1364,7 +1364,7 @@ static float list_max_w()
 
 // -- Screens -----------------------------------------------------------------
 
-enum Screen { SCR_BROWSER, SCR_OPTIONS, SCR_CONTROLS, SCR_LAUNCH, SCR_QUIT, SCR_NOBIOS, SCR_AWHOME, SCR_AWBTN };
+enum Screen { SCR_BROWSER, SCR_OPTIONS, SCR_CONTROLS, SCR_LAUNCH, SCR_QUIT, SCR_NOBIOS, SCR_AWHOME, SCR_AWBTN, SCR_AWCREDITS };
 
 // Atomiswave home: the options and controls screens return here when the game came from it.
 static bool s_home_origin;
@@ -1581,10 +1581,14 @@ static void aw_home_pick()
 
 static Screen aw_home_input(u32 pressed)
 {
+	// The rows are the games and, last, Credits.
+	const bool on_credits = s_aw_count > 0 && s_aw_sel >= s_aw_count;
 	if (pressed & MB_UP)
-		s_aw_sel = s_aw_sel > 0 ? s_aw_sel - 1 : (s_aw_count ? s_aw_count - 1 : 0);
+		s_aw_sel = s_aw_sel > 0 ? s_aw_sel - 1 : s_aw_count;
 	else if (pressed & MB_DOWN)
-		s_aw_sel = (s_aw_sel < s_aw_count - 1) ? s_aw_sel + 1 : 0;
+		s_aw_sel = (s_aw_sel < s_aw_count) ? s_aw_sel + 1 : 0;
+	if (s_aw_count == 0)
+		s_aw_sel = 0;
 	else if (pressed & MB_TRIANGLE)
 	{
 		s_home_origin = false;
@@ -1593,6 +1597,11 @@ static Screen aw_home_input(u32 pressed)
 	}
 	else if (pressed & MB_SELECT)
 		return SCR_QUIT;
+	else if (on_credits)
+	{
+		if (pressed & MB_CROSS)
+			return SCR_AWCREDITS;
+	}
 	else if (s_aw_count == 0)
 	{
 		if (pressed & MB_CROSS)
@@ -1645,6 +1654,12 @@ static void aw_home_draw()
 	}
 	for (int i = 0; i < s_aw_count; i++)
 		draw_row(i, i == s_aw_sel, COL_TEXT, s_aw_games[i].title, NULL);
+	draw_row(s_aw_count, s_aw_sel >= s_aw_count, COL_DIM, aw_credits_label(), NULL);
+	if (s_aw_sel >= s_aw_count)
+	{
+		draw_footer(NULL, "X Open   /\\ Files   SELECT Quit");
+		return;
+	}
 	draw_footer(fit(s_aw_games[s_aw_sel].path, list_max_w(), cut, sizeof(cut)),
 	            "X Play   [] Buttons   R1 Test menu   START Options   /\\ Files   SELECT Quit");
 }
@@ -2198,6 +2213,7 @@ int ps3_menu_run(void)
 		{
 		case SCR_AWHOME:   scr = aw_home_input(pressed);  break;
 		case SCR_AWBTN:    scr = aw_remap_input(pressed) ? SCR_AWHOME : SCR_AWBTN;  break;
+		case SCR_AWCREDITS: scr = (pressed & (MB_CIRCLE | MB_CROSS)) ? SCR_AWHOME : SCR_AWCREDITS;  break;
 		case SCR_BROWSER:  scr = browser_input(pressed, false);  break;
 		case SCR_OPTIONS:  scr = options_input(pressed);  break;
 		case SCR_CONTROLS: scr = controls_input(pressed); break;
@@ -2216,6 +2232,7 @@ int ps3_menu_run(void)
 			{
 			case SCR_AWHOME:   aw_home_draw();  break;
 			case SCR_AWBTN:    aw_remap_draw();  break;
+			case SCR_AWCREDITS: aw_credits_draw();  break;
 			case SCR_BROWSER:  browser_draw(false);  break;
 			case SCR_OPTIONS:  options_draw();  break;
 			case SCR_CONTROLS: controls_draw(); break;

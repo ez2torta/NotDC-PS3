@@ -16,7 +16,30 @@ static const char* const k_help[6] = {
 
 const char* aw_credit_line()
 {
-	return "Based on NotDC-PS3 by Matt. Thanks: nullDC4Wii, skmp, Flycast.";
+	return "Based on NotDC-PS3 by Mayo1970 and contributors. See Credits.";
+}
+
+const char* aw_credits_label() { return "Credits"; }
+
+void aw_credits_draw()
+{
+	ps3m_header("CREDITS", "NotDC AW");
+	static const char* const k_line[] = {
+		"NotDC AW is a fork of NotDC-PS3, the Dreamcast emulator for the PS3.",
+		"Emulator: NotDC-PS3 by Mayo1970 and contributors (Matt, Damian Parrino)",
+		"github.com/Mayo1970/NotDC-PS3",
+		"",
+		"Atomiswave mode and arcade menus: ez2torta (github.com/ez2torta)",
+		"",
+		"Built on: nullDC4Wii (BenoitAdam), nullDC and Reicast (skmp)",
+		"Atomiswave reference: Flycast (flyinghead)",
+		"Made with PSL1GHT / ps3dev",
+		"",
+		"Free software, GPL-3.0. Share a package and you share its source.",
+	};
+	for (int i = 0; i < (int)(sizeof(k_line) / sizeof(k_line[0])); i++)
+		ps3m_row(i, false, k_line[i][0] == '\0' ? true : (i == 2), k_line[i], NULL);
+	ps3m_footer(NULL, "O Back");
 }
 
 static int s_row;

@@ -205,9 +205,10 @@ NotDC-PS3 is an AI-assisted project. The emulator itself was tested on real PS3 
 NotDC AW is built on **NotDC-PS3**, a Dreamcast emulator for the PS3, and none of it would exist without the people
 behind it:
 
-- **NotDC-PS3** (the emulator this fork is based on): Matt, who wrote most of it (the git history of this repository
-  carries their commits), and Damián Parrino. The NotDC AW changes (Atomiswave mode, `dc/aw/`, `ps3/ps3_aw*`, the
-  arcade menus) were added on top of their work by Paulo Sandoval.
+- **[NotDC-PS3](https://github.com/Mayo1970/NotDC-PS3)** (the emulator this fork is based on): Mayo1970 and
+  contributors. The git history of this repository carries the commits of Matt, who wrote most of it, and Damián Parrino.
+- **NotDC AW** (Atomiswave mode, `dc/aw/`, `ps3/ps3_aw*`, the arcade menus and controls) was added on top of their
+  work by [ez2torta](https://github.com/ez2torta). The in-app Credits screen (Credits row on the game list) says the same.
 - [Flycast](https://github.com/flyinghead/flycast): the reference for Atomiswave behaviour (cartridge, board, flash, maple pad).
 - [skmp](https://github.com/skmp): nullDC, Reicast and Minicast, as well as providing the required documentation to get the emulation in the state it is today.
 - [BenoitAdam](https://github.com/BenoitAdam/nullDC4Wii): the nullDC4Wii port, which NotDC started from.

@@ -6,7 +6,7 @@ endif
 PSL1GHT ?= $(PS3DEV)
 
 TARGET     := notdc_aw_ps3
-TITLE      := NotDC AW
+TITLE      := NotDC AW - KOF XI
 TITLE_ID   := NOTDCAW01
 CONTENT_ID := UP0001-$(TITLE_ID)_00-0000000000000000
 # PARAM.SFO APP_VER (XMB version) for the NotDC AW test build; sfo has no flag for it, so the pkg rule edits a copy of sfo.xml.
