@@ -213,6 +213,80 @@ Criterio HW: pelea jugable, audio presente y sin caidas sostenidas.
 - Verificar que `/dev_hdd0/data/NotDC/` y `NOTDC0000` no cambian.
 - Documentar resultados y limites.
 
+### F8. Interfaz, controles y configuracion (siguiente bloque)
+
+**Estado que motiva F8:** el juego corre y los cheats de RAM funcionan, pero el usuario reporta:
+el navegador abre en `HDD/discs` vacio y hay que cambiar a `ARCADE` con Triangulo; los botones no responden;
+`Free Play` no hace freeplay real; no aparece `Atomiswave Controller`; el test menu no se alcanza de forma clara.
+
+#### F8.1 Arranque del navegador y lista de juegos
+
+- Recordar el ultimo dispositivo y carpeta en `NotDC-AW.cfg` (`[ps3] LastDevice`, `LastFolder`), con fallback a HDD.
+- Si existe `USRDIR/discs` (PKG completo), arrancar en **ARCADE** la primera vez; si no, en HDD.
+- No mostrar una lista vacia como estado inicial: si HDD/discs esta vacio y ARCADE tiene juegos, entrar en ARCADE.
+- Etiquetar cada entrada: `[AW]` para `.aw`, `[GDI]`, `[CDI]`, `[CHD]`, `[ELF]`; mostrar el titulo del `.aw`
+  leyendo el `TITLE`/`name` del descriptor o el header del `fmem1`.
+- Anadir una accion "Refresh" y conservar la posicion al volver de opciones.
+- Criterio: al abrir NotDC AW se ve `[AW] kofxi` sin pulsar Triangulo.
+
+#### F8.2 Controles arcade reales
+
+- Separar el input AW del mapa Dreamcast: `ps3/ps3_aw_input.cpp` con estado directo
+  `A/B/C/D/E/Start/Coin/Test/Service` y un mapa configurable DS3 -> AW.
+- Pagina **ARCADE CONTROLS** en el menu, visible antes del boot y en el menu in-game, con etiquetas
+  `A/C/B/D/E/START/COIN/TEST/SERVICE`; no reutilizar los nombres Dreamcast.
+- Mantener el mando maple compatible: `name()` vuelve a `"Dreamcast Controller"` si el juego deja de
+  detectarlo; la etiqueta Atomiswave se muestra en el menu del emulador, no se fuerza en el guest.
+- Traza opt-in `[awpad] condition=%04X reads=%u` para distinguir "el juego no sondea" de "el boton no llega".
+- Prueba dirigida en el button config/test menu del juego: pulsar cada boton y comprobar el bit AW.
+- Criterio: A/B/C/D/E/Start/Coin/Test/Service responden en el juego y en el test menu.
+
+#### F8.3 Freeplay real y persistencia
+
+- `QUICK FREE` no es el ajuste real de freeplay. El camino correcto es el test menu:
+  `COIN SETTINGS -> GAME MODE FREE PLAY`.
+- Anadir a la pagina ARCADE un acceso **BOOT TEST MENU** que mantenga TEST durante los primeros N frames
+  (por ejemplo 120), para no depender de que el usuario mantenga R3.
+- Si el test menu no es alcanzable, localizar el flag real de freeplay en la flash DC o en RAM y escribir
+  solo ese flag; no reutilizar `QUICK FREE` como sustituto.
+- Persistencia: guardar `dc_flash_wb.bin` y `aw_flash.bin`; verificar tras reiniciar que FREE PLAY,
+  LANGUAGE y REGION siguen.
+- Criterio: arrancar sin ficha, elegir modo y entrar a pelea; reiniciar y comprobar que sigue en freeplay.
+
+#### F8.4 Region e idioma
+
+- La build actual crea la flash DC USA/English/NTSC si no hay `dc_flash.bin`.
+- Entrar al test menu y poner `SYSTEM SETTINGS -> LANGUAGE`; guardar y reiniciar.
+- Si el texto del juego sigue en japones, localizar el flag de idioma del ejecutable o de la flash AW
+  (no asumir que el idioma del menu DC es el del juego) y anadirlo a la pagina ARCADE como `LANGUAGE`.
+- Criterio: warning/titulo/menus en el idioma elegido y persistente.
+
+#### F8.5 Test menu y ajustes permanentes
+
+- R3 = TEST y L3 = SERVICE, pero ademas **BOOT TEST MENU** por menu para que no dependa del timing.
+- Documentar que ajustes del test menu se guardan en `dc_flash_wb.bin`/`aw_flash.bin`.
+- Anadir un diagnostico `[awcfg]` con el estado de freeplay/idioma/region leido de flash al arrancar.
+- Criterio: el usuario puede entrar al test menu, cambiar freeplay/idioma, salir, reiniciar y conservarlo.
+
+#### F8.6 Paginas del menu
+
+- Mover **ARCADE** cerca de EMULATION (no al final) y marcar la fila con un icono/texto `[AW]`.
+- En la pagina ARCADE: Free Play, All Bosses, Same Chars, LDM Any, Test Menu, Language, Region.
+- En **CONTROLS** cambiar las etiquetas a AW cuando el juego seleccionado sea `.aw`; no esperar a que
+  `aw_pending()` sea verdadero, porque eso ocurre despues del menu.
+- Mantener los cheats actuales; anadir un perfil `ARCADE DELUXE` y `VANILLA` en una sola fila.
+- Criterio: todas las opciones se entienden sin conocer la implementacion y persisten.
+
+#### F8.7 Orden de trabajo
+
+1. F8.1 navegador + etiquetas (bajo riesgo, sin tocar el guest).
+2. F8.2 controles directos + traza; probar en button config.
+3. F8.3 freeplay real + BOOT TEST MENU.
+4. F8.4 idioma/region y persistencia.
+5. F8.5/F8.6 pulido de paginas y perfiles.
+
+Cada paso termina con build, prueba HW y log; no se acumulan cambios de interfaz y guest en una sola corrida.
+
 ## 4. Archivos previstos
 
 | Archivo | Funcion |
