@@ -417,6 +417,14 @@ NETWORK; la pagina ARCADE (All Bosses, Same Chars, LDM Any) va justo despues de 
 abre directo en ella; X en opciones lanza el juego sin pasar por la pagina CONTROLS de Dreamcast. `.got`: 872 B libres.
 Pendiente: perfiles `ARCADE DELUXE`/`VANILLA` en una fila, atajo START+SELECT 2 s, textos "Disc"/"BIOS" restantes.
 
+**Estado perfiles y logs (2026-11-13, sin prueba en HW):** fila `Profile` al inicio de la pagina ARCADE: `ARCADE DELUXE`
+(All Bosses + Same Chars + LDM Any) / `VANILLA` / `CUSTOM` (mezcla, solo se muestra, no se elige). Los tres cheats y el perfil
+ahora son *live* en el menu pausa (antes se tomaban como "proximo arranque"). Logs en `NotDC-AW.log`, por etiqueta:
+`[awui]` (juegos hallados, seleccion, filas del mini menu, test menu), `[awmap]` (pads de P1/P2, cada boton asignado, guardado),
+`[awpad]` (mapa cargado, TEST sostenido, cada cambio del word de cada jugador), `[awcheat]` (perfil y flags escritos),
+`[aw]` (SB_SFRES). Si un boton no responde: `[awpad] P1 kcode` cambia = el boton llego al emulador; si no cambia, mirar `[awmap]`.
+`.got`: 776 B libres.
+
 **F9.5 Orden de trabajo**
 
 1. F9.1 pantalla de inicio de AW (solo UI, sin guest).

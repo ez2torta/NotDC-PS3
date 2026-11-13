@@ -304,6 +304,7 @@ bool aw_on_system_reset()
 {
 	if (!g_aw_active)
 		return false;
+	printf("[aw] SB_SFRES 0x7611 from the game (test menu SAVE&EXIT or backup clear): saving flashes, closing\n");
 	aw_trace("[aw] system reset requested by the game: saving flash, back to the menu\n");
 	mem_SaveFlash();
 	ps3_close_game();

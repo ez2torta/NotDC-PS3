@@ -37,6 +37,8 @@ void aw_remap_open()
 {
 	s_player = s_page = s_row = 0;
 	s_capture = s_all = false;
+	printf("[awmap] open: P1 pad %s, P2 pad %s\n", ps3m_pad_raw(0) < 0 ? "none" : "ok",
+	       ps3m_pad_raw(1) < 0 ? "none" : "ok");
 }
 
 static int row_ctl(int row)   // control of a page row, -1 for the action rows
@@ -53,10 +55,14 @@ static int row_count() { return s_page == 0 ? (int)P0_ROWS : P1_ROWS; }
 static void begin_capture(int ctl)
 {
 	if (ps3m_pad_raw(s_player) < 0)
+	{
+		printf("[awmap] P%d has no pad, remap refused\n", s_player + 1);
 		return;
+	}
 	s_cap_ctl = ctl;
 	s_capture = true;
 	s_cap_wait = true;
+	printf("[awmap] P%d waiting for a button for %s\n", s_player + 1, k_short[ctl]);
 }
 
 bool aw_remap_input(u32 pressed)
@@ -85,6 +91,7 @@ bool aw_remap_input(u32 pressed)
 		while (!((raw >> b) & 1))
 			b++;
 		aw_input_set(s_player, s_cap_ctl, b);
+		printf("[awmap] P%d %s <- %s\n", s_player + 1, k_short[s_cap_ctl], k_ds3[b]);
 		if (s_all && s_cap_ctl < AWB_COIN)
 		{
 			s_cap_ctl++;
@@ -121,7 +128,7 @@ bool aw_remap_input(u32 pressed)
 			s_row = 0;
 		}
 		else if (s_page == 0 && s_row == R_RESET)
-			aw_input_defaults(s_player);
+			aw_input_defaults(s_player), printf("[awmap] P%d reset to default\n", s_player + 1);
 		else if (s_page == 1)
 		{
 			s_page = 0;
@@ -138,6 +145,7 @@ bool aw_remap_input(u32 pressed)
 		else
 		{
 			aw_input_save();
+			printf("[awmap] saved\n");
 			return true;
 		}
 	}

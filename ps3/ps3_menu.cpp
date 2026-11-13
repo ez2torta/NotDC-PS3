@@ -1054,7 +1054,10 @@ static Option s_controls[] = {
 };
 
 // Built-in Atomiswave toggles. They apply from the next vblank and persist in [ps3].
+static const char* k_awprof[] = { "ARCADE DELUXE", "VANILLA", "CUSTOM", NULL };
 static Option s_aw[] = {
+	{ "Profile",     &g_aw_profile,     OPT_CHOICE, k_awprof, 0, 0,0,0, NULL,
+	  "ARCADE DELUXE turns the three cheats below on, VANILLA turns them off. CUSTOM: a mix. Live.", 0, 1 },
 	{ "All Bosses",  &g_aw_all_bosses,  OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
 	  "Unlocks PS GAI, HAYATE, ADELHIDE, SILBER, JAZU, SHION and MAGAKI. Live.", 0, 1 },
 	{ "Same Chars",  &g_aw_same_chars,  OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
@@ -1137,6 +1140,8 @@ static int choice_count(const Option* o)
 
 static void option_text(const Option* o, char* out, size_t len)
 {
+	if (o->val == &g_aw_profile)
+		g_aw_profile = aw_profile_current();
 	if (o->kind == OPT_CHOICE)
 	{
 		const char** names = ((aw_pending() || aw_descriptor_path(selectedFilePath)) && o->names == k_padmap)
@@ -1156,6 +1161,11 @@ static void option_text(const Option* o, char* out, size_t len)
 
 static void option_step(Option* o, int dir)
 {
+	if (o->val == &g_aw_profile)
+	{
+		aw_profile_toggle();
+		return;
+	}
 	if (o->kind == OPT_CHOICE)
 	{
 		int n = choice_count(o);
@@ -1555,7 +1565,9 @@ static void aw_scan_games()
 			s_aw_count++;
 		}
 	}
-	printf("[menu] %d Atomiswave game(s)\n", s_aw_count);
+	for (int i = 0; i < s_aw_count; i++)
+		printf("[awui] game %d: '%s' %s\n", i, s_aw_games[i].title, s_aw_games[i].path);
+	printf("[menu] %d Atomiswave game(s), %d device(s), pads %d\n", s_aw_count, s_dev_count, pad_count());
 }
 
 static void aw_home_pick()
@@ -1563,6 +1575,7 @@ static void aw_home_pick()
 	snprintf(selectedFilePath, sizeof(selectedFilePath), "%s", s_aw_games[s_aw_sel].path);
 	ps3_game_cfg_open(selectedFilePath);
 	s_home_origin = true;
+	printf("[awui] picked '%s'\n", selectedFilePath);
 }
 
 static Screen aw_home_input(u32 pressed)
@@ -1596,6 +1609,7 @@ static Screen aw_home_input(u32 pressed)
 	{
 		aw_home_pick();
 		aw_input_test_hold(240);
+		printf("[awui] boot with TEST held (240 polls)\n");
 		return SCR_LAUNCH;
 	}
 	else if (pressed & MB_SQUARE)
@@ -1847,6 +1861,7 @@ static volatile bool s_ingame_req;
 // Read on every use, so a change acts at once. Any other option is saved for the next boot only.
 static int* const k_live_opts[] = {
 	&g_advanced_preset, &g_udp_log, &g_write_log_preset,
+	&g_aw_profile, &g_aw_all_bosses, &g_aw_same_chars, &g_aw_ldm_any,
 	&g_aica_fast_preset, &g_mute_pcm16_preset, &g_cdda_preset, &g_arm7_speed_preset, &g_arm7_batch_preset,
 	&g_speed_limiter_preset, &g_exit_fix_preset, &g_drop_policy_preset,
 	&g_x_scaler_preset, &g_debug_gdrom, &g_jit_ccalls_preset, &g_arm7_idle_skip_preset,
@@ -2015,6 +2030,8 @@ void ps3_menu_ingame(void)
 				const int a = aw_mini_input(pressed);
 				if (a == AWM_CONTINUE)
 					break;
+				if (a != AWM_NONE)
+					printf("[awui] mini menu row %d\n", a);
 				if (a == AWM_TEST)
 				{
 					test_menu = true;
@@ -2118,7 +2135,10 @@ void ps3_menu_ingame(void)
 		if (shot)
 			ps3rend_screenshot();
 		if (test_menu)
+		{
 			aw_input_test_hold(120);
+			printf("[awui] test menu: TEST held for 120 polls\n");
+		}
 		// G15: the presets are saved above; the monitor thread stops the SH4 as at an XMB exit, then NotDC starts again.
 		if (close_game)
 			ps3_close_game();

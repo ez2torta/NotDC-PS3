@@ -46,6 +46,9 @@ void aw_input_load()
 			const int v = cfgLoadInt("ps3", key, g_aw_map[p][c]);
 			g_aw_map[p][c] = (v >= -1 && v < PADBTN_COUNT) ? v : g_aw_map[p][c];
 		}
+		printf("[awpad] P%d map A%d B%d C%d D%d E%d START%d COIN%d (DS3 button index, -1 none)\n", p + 1,
+		       g_aw_map[p][AWB_A], g_aw_map[p][AWB_B], g_aw_map[p][AWB_C], g_aw_map[p][AWB_D],
+		       g_aw_map[p][AWB_E], g_aw_map[p][AWB_START], g_aw_map[p][AWB_COIN]);
 	}
 }
 
@@ -71,7 +74,11 @@ void aw_input_set(int p, int c, int b)
 	g_aw_map[p][c] = b;
 }
 
-void aw_input_test_hold(int polls) { s_test_polls = polls; }
+void aw_input_test_hold(int polls)
+{
+	s_test_polls = polls;
+	printf("[awpad] TEST hold armed: %d polls\n", polls);
+}
 
 u16 aw_input_kcode(int p, const unsigned char* ana)
 {
@@ -80,7 +87,8 @@ u16 aw_input_kcode(int p, const unsigned char* ana)
 		return k;
 	if (p == 0 && s_test_polls > 0)
 	{
-		s_test_polls--;
+		if (--s_test_polls == 0)
+			printf("[awpad] TEST hold released\n");
 		k &= (u16)~key_CONT_DPAD2_DOWN;   // TEST
 	}
 	for (int c = 0; c < AWB_COUNT; c++)
@@ -88,6 +96,13 @@ u16 aw_input_kcode(int p, const unsigned char* ana)
 		const int b = g_aw_map[p][c];
 		if (b >= 0 && ana[b])
 			k &= (u16)~k_dcbit[c];
+	}
+	// One line per change of a player's word, to tell "the game does not poll" from "the button never arrived".
+	static u16 last[2] = { 0xFFFF, 0xFFFF };
+	if (k != last[p])
+	{
+		printf("[awpad] P%d kcode %04X\n", p + 1, k);
+		last[p] = k;
 	}
 	return k;
 }
