@@ -1,4 +1,4 @@
-// Atomiswave BUTTONS screen. Strings live here (-mminimal-toc) to spare the menu's TOC.
+// Atomiswave BUTTONS screen, one column per pad. Strings live here (-mminimal-toc) to spare the menu's TOC.
 #include <stdio.h>
 #include <string.h>
 #include "ps3/ps3_aw_remap.h"
@@ -21,27 +21,33 @@ static const char* const k_short[AWB_COUNT] = {
 	"A", "B", "C", "D", "E", "START", "COIN", "UP", "DOWN", "LEFT", "RIGHT", "SERVICE", "TEST",
 };
 
-// Page 0: the seven main controls, REMAP ALL, MORE, RESET. Page 1: the other controls and BACK.
-enum { R_ALL = AWB_COIN + 1, R_MORE, R_RESET, P0_ROWS };
-#define P1_ROWS 7   // UP DOWN LEFT RIGHT SERVICE TEST, BACK
+// Page 0: A..COIN (7 rows). Page 1: UP..TEST (6) and BACK (1).
+enum { R_BACK = AWB_TEST + 1, PAGE_ROWS = 7 };
 
-static int  s_player;
-static int  s_page;
-static int  s_row;
-static bool s_capture;      // waiting for a DS3 button for control s_cap_ctl
-static bool s_cap_wait;     // ...until every button is released
-static bool s_all;          // REMAP ALL walks A..COIN
-static int  s_cap_ctl;
+struct Cursor
+{
+	int  row;
+	bool cap;       // waiting for a DS3 button for cap_ctl
+	bool wait;      // ...until every button is released
+	int  cap_ctl;
+};
+
+static Cursor s_cur[2];
+static u32    s_prev[2];
+static int    s_page;
 
 void aw_remap_open()
 {
-	s_player = s_page = s_row = 0;
-	s_capture = s_all = false;
-	printf("[awmap] open: P1 pad %s, P2 pad %s\n", ps3m_pad_raw(0) < 0 ? "none" : "ok",
-	       ps3m_pad_raw(1) < 0 ? "none" : "ok");
+	memset(s_cur, 0, sizeof(s_cur));
+	s_page = 0;
+	// A button already held when the screen opens (the X that opened it) is not a press.
+	const int r0 = ps3m_pad_raw(0), r1 = ps3m_pad_raw(1);
+	s_prev[0] = r0 < 0 ? 0 : (u32)r0;
+	s_prev[1] = r1 < 0 ? 0 : (u32)r1;
+	printf("[awmap] open: P1 pad %s, P2 pad %s\n", r0 < 0 ? "none" : "ok", r1 < 0 ? "none" : "ok");
 }
 
-static int row_ctl(int row)   // control of a page row, -1 for the action rows
+static int row_ctl(int row)
 {
 	if (s_page == 0)
 		return row <= AWB_COIN ? row : -1;
@@ -50,39 +56,55 @@ static int row_ctl(int row)   // control of a page row, -1 for the action rows
 	return AWB_UP + row;
 }
 
-static int row_count() { return s_page == 0 ? (int)P0_ROWS : P1_ROWS; }
-
-static void begin_capture(int ctl)
+static bool pressed_bit(u32 raw, int bit)
 {
-	if (ps3m_pad_raw(s_player) < 0)
-	{
-		printf("[awmap] P%d has no pad, remap refused\n", s_player + 1);
-		return;
-	}
-	s_cap_ctl = ctl;
-	s_capture = true;
-	s_cap_wait = true;
-	printf("[awmap] P%d waiting for a button for %s\n", s_player + 1, k_short[ctl]);
+	return (raw & (1u << bit)) != 0;
 }
 
-bool aw_remap_input(u32 pressed)
+static void begin_capture(int p, int ctl)
 {
-	if (s_capture)
+	if (ps3m_pad_raw(p) < 0)
 	{
-		if (pressed & MB_SELECT)
-		{
-			s_capture = s_all = false;
-			return false;
-		}
-		const int raw = ps3m_pad_raw(s_player);
+		printf("[awmap] P%d has no pad, remap refused\n", p + 1);
+		return;
+	}
+	s_cur[p].cap_ctl = ctl;
+	s_cur[p].cap = true;
+	s_cur[p].wait = true;
+	printf("[awmap] P%d waiting for a button for %s\n", p + 1, k_short[ctl]);
+}
+
+// One player's pad for this frame. Returns the buttons that went down now.
+static u32 pad_pressed(int p)
+{
+	const int raw = ps3m_pad_raw(p);
+	if (raw < 0)
+	{
+		s_prev[p] = 0;
+		return 0;
+	}
+	const u32 now = (u32)raw;
+	const u32 pressed = now & ~s_prev[p];
+	s_prev[p] = now;
+	return pressed;
+}
+
+static bool one_player(int p)
+{
+	Cursor* c = &s_cur[p];
+	const int raw = ps3m_pad_raw(p);
+	const u32 pr = pad_pressed(p);
+
+	if (c->cap)
+	{
 		if (raw < 0)
 		{
-			s_capture = s_all = false;
+			c->cap = c->wait = false;
 			return false;
 		}
-		if (s_cap_wait)
+		if (c->wait)
 		{
-			s_cap_wait = raw != 0;
+			c->wait = raw != 0;
 			return false;
 		}
 		if (!raw)
@@ -90,124 +112,107 @@ bool aw_remap_input(u32 pressed)
 		int b = 0;
 		while (!((raw >> b) & 1))
 			b++;
-		aw_input_set(s_player, s_cap_ctl, b);
-		printf("[awmap] P%d %s <- %s\n", s_player + 1, k_short[s_cap_ctl], k_ds3[b]);
-		if (s_all && s_cap_ctl < AWB_COIN)
-		{
-			s_cap_ctl++;
-			s_row = s_cap_ctl;
-			s_cap_wait = true;
-		}
-		else
-			s_capture = s_all = false;
+		aw_input_set(p, c->cap_ctl, b);
+		printf("[awmap] P%d %s <- %s\n", p + 1, k_short[c->cap_ctl], k_ds3[b]);
+		c->cap = false;
 		return false;
 	}
 
-	const int n = row_count();
-	if (pressed & MB_UP)
-		s_row = s_row > 0 ? s_row - 1 : n - 1;
-	else if (pressed & MB_DOWN)
-		s_row = s_row < n - 1 ? s_row + 1 : 0;
-	else if (pressed & (MB_LEFT | MB_RIGHT | MB_L1 | MB_R1))
-		s_player ^= 1;
-	else if (pressed & MB_CROSS)
+	if (pressed_bit(pr, PADBTN_UP))
+		c->row = c->row > 0 ? c->row - 1 : PAGE_ROWS - 1;
+	else if (pressed_bit(pr, PADBTN_DOWN))
+		c->row = c->row < PAGE_ROWS - 1 ? c->row + 1 : 0;
+	else if (pressed_bit(pr, PADBTN_TRIANGLE))
 	{
-		const int c = row_ctl(s_row);
-		if (c >= 0)
-			begin_capture(c);
-		else if (s_page == 0 && s_row == R_ALL)
-		{
-			s_all = true;
-			s_row = 0;
-			begin_capture(0);
-			s_all = s_capture;
-		}
-		else if (s_page == 0 && s_row == R_MORE)
-		{
-			s_page = 1;
-			s_row = 0;
-		}
-		else if (s_page == 0 && s_row == R_RESET)
-			aw_input_defaults(s_player), printf("[awmap] P%d reset to default\n", s_player + 1);
+		s_page ^= 1;
+		if (c->row > PAGE_ROWS - 1)
+			c->row = PAGE_ROWS - 1;
+	}
+	else if (pressed_bit(pr, PADBTN_CIRCLE))
+	{
+		aw_input_save();
+		printf("[awmap] saved\n");
+		return true;
+	}
+	else if (pressed_bit(pr, PADBTN_SQUARE))
+	{
+		aw_input_defaults(p);
+		printf("[awmap] P%d reset to default\n", p + 1);
+	}
+	else if (pressed_bit(pr, PADBTN_CROSS))
+	{
+		const int ctl = row_ctl(c->row);
+		if (ctl >= 0)
+			begin_capture(p, ctl);
 		else if (s_page == 1)
 		{
 			s_page = 0;
-			s_row = R_MORE;
-		}
-	}
-	else if (pressed & MB_CIRCLE)
-	{
-		if (s_page == 1)
-		{
-			s_page = 0;
-			s_row = R_MORE;
-		}
-		else
-		{
-			aw_input_save();
-			printf("[awmap] saved\n");
-			return true;
+			c->row = AWB_COIN;
 		}
 	}
 	return false;
 }
 
-void aw_remap_draw()
+bool aw_remap_input(u32 pressed)
 {
-	char l[48], r[48], buf[160];
-	const int raw = ps3m_pad_raw(s_player);
-
-	snprintf(buf, sizeof(buf), "PLAYER %d", s_player + 1);
-	ps3m_header("BUTTONS", buf);
-
-	int slot = 0;
-	snprintf(buf, sizeof(buf), raw < 0 ? "Player %d: no pad connected" : "Player %d: pad connected",
-	         s_player + 1);
-	ps3m_row(slot++, false, true, buf, NULL);
-
-	const int n = row_count();
-	for (int i = 0; i < n; i++)
+	// SELECT is the only button that is not in the pad map: it cancels a capture, or saves and exits.
+	if (pressed & MB_SELECT)
 	{
-		const int c = row_ctl(i);
-		const bool sel = i == s_row;
-		if (c >= 0)
+		if (s_cur[0].cap || s_cur[1].cap)
 		{
-			const int b = g_aw_map[s_player][c];
-			if (s_capture && s_cap_ctl == c)
-				snprintf(r, sizeof(r), "PRESS A BUTTON");
-			else
-				snprintf(r, sizeof(r), "%s", b >= 0 ? k_ds3[b] : "NONE");
-			ps3m_row(slot++, sel, false, k_ctl[c], r);
-			continue;
+			s_cur[0].cap = s_cur[0].wait = false;
+			s_cur[1].cap = s_cur[1].wait = false;
+			printf("[awmap] capture cancelled\n");
+			return false;
 		}
-		if (s_page == 1)
-			snprintf(l, sizeof(l), "BACK");
-		else if (i == R_ALL)
-			snprintf(l, sizeof(l), "REMAP ALL  (A to COIN, in order)");
-		else if (i == R_MORE)
-			snprintf(l, sizeof(l), "Directions, service, test...");
-		else
-			snprintf(l, sizeof(l), "RESET THIS PLAYER TO DEFAULT");
-		ps3m_row(slot++, sel, false, l, NULL);
+		aw_input_save();
+		printf("[awmap] saved\n");
+		return true;
 	}
 
-	// What the pad drives right now, to check a mapping without leaving the screen.
-	buf[0] = '\0';
-	const u32 held = aw_input_held(s_player, raw > 0 ? (u32)raw : 0);
-	for (int c = 0; c < AWB_COUNT; c++)
-		if ((held >> c) & 1)
-		{
-			if (buf[0])
-				strncat(buf, " ", sizeof(buf) - strlen(buf) - 1);
-			strncat(buf, k_short[c], sizeof(buf) - strlen(buf) - 1);
-		}
-	snprintf(l, sizeof(l), "Pressing: %s", buf[0] ? buf : "-");
-	ps3m_row(slot + 1, false, true, l, NULL);
+	// Each column reads its own pad, so both players can remap at the same time.
+	bool done = false;
+	if (one_player(0))
+		done = true;
+	if (one_player(1))
+		done = true;
+	return done;
+}
 
-	if (s_capture)
-		ps3m_footer("Press the DS3 button you want. If it was used by another control, they swap.",
-		            "SELECT Cancel");
-	else
-		ps3m_footer("Pick a row and press X, then the button. Both players share the credit.",
-		            "X Remap   UP/DOWN Row   LEFT/RIGHT Player   O Back");
+void aw_remap_draw()
+{
+	char v[2][24];
+	ps3m_header("BUTTONS", s_page == 0 ? "A-E / START / COIN" : "DIRECTIONS / TEST");
+
+	const int raw0 = ps3m_pad_raw(0), raw1 = ps3m_pad_raw(1);
+	ps3m_row2(0, false, true, "", "PLAYER 1", "PLAYER 2");
+	ps3m_row(1, false, true, "PAD",
+	         raw0 < 0 ? "P1: none" : (raw1 < 0 ? "P1: ok   P2: none" : "P1: ok   P2: ok"));
+
+	for (int i = 0; i < PAGE_ROWS; i++)
+	{
+		const int ctl = row_ctl(i);
+		const char* label = s_page == 1 && i >= 6 ? "BACK to A-E / START / COIN" : k_ctl[ctl];
+		for (int p = 0; p < 2; p++)
+		{
+			Cursor* c = &s_cur[p];
+			const bool sel = c->row == i;
+			if (ctl < 0)
+			{
+				snprintf(v[p], sizeof(v[p]), "%s", sel ? ">" : " ");
+				continue;
+			}
+			if (c->cap && c->cap_ctl == ctl)
+				snprintf(v[p], sizeof(v[p]), "%sPRESS", sel ? ">" : " ");
+			else
+			{
+				const int b = g_aw_map[p][ctl];
+				snprintf(v[p], sizeof(v[p]), "%s%s", sel ? ">" : " ", b >= 0 ? k_ds3[b] : "NONE");
+			}
+		}
+		ps3m_row2(2 + i, s_cur[0].row == i || s_cur[1].row == i, false, label, v[0], v[1]);
+	}
+
+	ps3m_footer("Each pad: UP/DOWN row, X remap, [] reset. NONE means unbound.",
+	            "TRIANGLE Dirs/Test   O Save   SELECT Cancel");
 }

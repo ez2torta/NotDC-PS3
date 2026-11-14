@@ -1055,15 +1055,32 @@ static Option s_controls[] = {
 
 // Built-in Atomiswave toggles. They apply from the next vblank and persist in [ps3].
 static const char* k_awprof[] = { "ARCADE DELUXE", "VANILLA", "CUSTOM", NULL };
+static const char* k_awlife[] = { "OFF", "INFINITE", "ONE HIT", NULL };
 static Option s_aw[] = {
 	{ "Profile",     &g_aw_profile,     OPT_CHOICE, k_awprof, 0, 0,0,0, NULL,
-	  "ARCADE DELUXE turns the three cheats below on, VANILLA turns them off. CUSTOM: a mix. Live.", 0, 1 },
+	  "ARCADE DELUXE turns All Bosses, Same Chars and LDM Any on; VANILLA turns them off. Live.", 0, 1 },
 	{ "All Bosses",  &g_aw_all_bosses,  OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
 	  "Unlocks PS GAI, HAYATE, ADELHIDE, SILBER, JAZU, SHION and MAGAKI. Live.", 0, 1 },
 	{ "Same Chars",  &g_aw_same_chars,  OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
 	  "PS SAME: repeat a character inside the same team. Live.", 0, 1 },
 	{ "LDM Any",     &g_aw_ldm_any,     OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
 	  "L CMD FREE: any team member can use the LDM, not only the leader. Live.", 0, 1 },
+	{ "P1 Health",   &g_aw_health[0],   OPT_CHOICE, k_awlife, 0, 0,0,0, NULL,
+	  "INFINITE refills the active fighter every vblank. ONE HIT leaves 1 HP. Live.", 0, 1 },
+	{ "P2 Health",   &g_aw_health[1],   OPT_CHOICE, k_awlife, 0, 0,0,0, NULL,
+	  "Player 2 health: OFF, INFINITE or ONE HIT. Live.", 0, 1 },
+	{ "P1 Power",    &g_aw_power[0],    OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
+	  "Keeps the player 1 power gauge (super) full. Live.", 0, 1 },
+	{ "P2 Power",    &g_aw_power[1],    OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
+	  "Keeps the player 2 power gauge (super) full. Live.", 0, 1 },
+	{ "P1 Skill",    &g_aw_skill[0],    OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
+	  "Keeps the player 1 skill gauge (tag) full. Live.", 0, 1 },
+	{ "P2 Skill",    &g_aw_skill[1],    OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
+	  "Keeps the player 2 skill gauge (tag) full. Live.", 0, 1 },
+	{ "Round Time",  &g_aw_round_time,  OPT_RANGE,  NULL, 0, 0,98,1, "%d s",
+	  "0 = OFF. 1..98 sets the round clock to that many seconds every vblank.", 0, 1 },
+	{ "Time Stop",   &g_aw_time_stop,   OPT_CHOICE, k_onoff, 0, 0,0,0, NULL,
+	  "The game's own TIME STOP debug bit: fighters keep animating and the round clock stops. Live.", 0, 1 },
 };
 
 struct Page
@@ -1323,6 +1340,21 @@ void ps3m_footer(const char* help, const char* keys) { draw_footer(help, keys); 
 void ps3m_row(int slot, bool selected, bool dim, const char* left, const char* right)
 {
 	draw_row(slot, selected, dim ? COL_DIM : COL_TEXT, left, right);
+}
+
+// A three-column row for the two-pad BUTTONS screen: label, player 1 value, player 2 value.
+void ps3m_row2(int slot, bool selected, bool dim, const char* left, const char* c1, const char* c2)
+{
+	float top = s_list_y + slot * s_row_h;
+	u32 color = dim ? COL_DIM : COL_TEXT;
+	if (selected)
+	{
+		ps3ui_rect(s_mx - 12, top, s_sw - 2 * s_mx + 24, s_row_h, COL_SEL_BG);
+		color = COL_SEL_TEXT;
+	}
+	ps3ui_text(s_mx, row_base(top), PS3UI_FONT_BODY, color, left);
+	ps3ui_text(s_sw * 0.46f, row_base(top), PS3UI_FONT_BODY, color, c1);
+	ps3ui_text(s_sw * 0.72f, row_base(top), PS3UI_FONT_BODY, color, c2);
 }
 
 // The PADBTN_* bits of the player's pad: players take the connected pads in port order.
@@ -1618,8 +1650,8 @@ static Screen aw_home_input(u32 pressed)
 	else if (pressed & MB_R1)
 	{
 		aw_home_pick();
-		aw_input_test_hold(240);
-		printf("[awui] boot with TEST held (240 polls)\n");
+		aw_input_test_hold(900);
+		printf("[awui] boot with TEST held (900 frames)\n");
 		return SCR_LAUNCH;
 	}
 	else if (pressed & MB_SQUARE)
@@ -1879,6 +1911,8 @@ static volatile bool s_ingame_req;
 static int* const k_live_opts[] = {
 	&g_advanced_preset, &g_udp_log, &g_write_log_preset,
 	&g_aw_profile, &g_aw_all_bosses, &g_aw_same_chars, &g_aw_ldm_any,
+	&g_aw_health[0], &g_aw_health[1], &g_aw_power[0], &g_aw_power[1],
+	&g_aw_skill[0], &g_aw_skill[1], &g_aw_round_time, &g_aw_time_stop,
 	&g_aica_fast_preset, &g_mute_pcm16_preset, &g_cdda_preset, &g_arm7_speed_preset, &g_arm7_batch_preset,
 	&g_speed_limiter_preset, &g_exit_fix_preset, &g_drop_policy_preset,
 	&g_x_scaler_preset, &g_debug_gdrom, &g_jit_ccalls_preset, &g_arm7_idle_skip_preset,
@@ -2153,8 +2187,8 @@ void ps3_menu_ingame(void)
 			ps3rend_screenshot();
 		if (test_menu)
 		{
-			aw_input_test_hold(120);
-			printf("[awui] test menu: TEST held for 120 polls\n");
+			aw_input_test_hold(900);
+			printf("[awui] test menu: TEST held for 900 frames\n");
 		}
 		// G15: the presets are saved above; the monitor thread stops the SH4 as at an XMB exit, then NotDC starts again.
 		if (close_game)

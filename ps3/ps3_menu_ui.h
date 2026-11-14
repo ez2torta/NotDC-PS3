@@ -11,6 +11,8 @@ enum {
 
 void ps3m_header(const char* title, const char* right);
 void ps3m_row(int slot, bool selected, bool dim, const char* left, const char* right);
+// Three columns (label, player 1, player 2) for the Atomiswave two-pad BUTTONS screen.
+void ps3m_row2(int slot, bool selected, bool dim, const char* left, const char* c1, const char* c2);
 void ps3m_footer(const char* help, const char* keys);
 // PADBTN_* bits (ps3_padmap.h) held on the pad of player 0 or 1, in the order the pads are connected.
 // -1: that player has no pad.

@@ -8,7 +8,7 @@
 
 
 int g_aw_map[2][AWB_COUNT];
-static volatile int s_test_polls;
+static volatile int s_test_frames;
 
 // Machine control -> DC bit. The game's B/C/D labels sit on DC X/B/Y and E on DC C (docs/specs/botones.md).
 static const unsigned short k_dcbit[AWB_COUNT] = {
@@ -74,10 +74,16 @@ void aw_input_set(int p, int c, int b)
 	g_aw_map[p][c] = b;
 }
 
-void aw_input_test_hold(int polls)
+void aw_input_test_hold(int frames)
 {
-	s_test_polls = polls;
-	printf("[awpad] TEST hold armed: %d polls\n", polls);
+	s_test_frames = frames;
+	printf("[awpad] TEST hold armed: %d frames\n", frames);
+}
+
+void aw_input_test_tick()
+{
+	if (s_test_frames > 0 && --s_test_frames == 0)
+		printf("[awpad] TEST hold released\n");
 }
 
 u16 aw_input_kcode(int p, const unsigned char* ana)
@@ -85,12 +91,8 @@ u16 aw_input_kcode(int p, const unsigned char* ana)
 	u16 k = 0xFFFF;
 	if (p < 0 || p > 1)
 		return k;
-	if (p == 0 && s_test_polls > 0)
-	{
-		if (--s_test_polls == 0)
-			printf("[awpad] TEST hold released\n");
+	if (p == 0 && s_test_frames > 0)
 		k &= (u16)~key_CONT_DPAD2_DOWN;   // TEST
-	}
 	for (int c = 0; c < AWB_COUNT; c++)
 	{
 		const int b = g_aw_map[p][c];

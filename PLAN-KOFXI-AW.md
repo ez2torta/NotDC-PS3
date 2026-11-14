@@ -439,6 +439,36 @@ Cada paso termina con build, prueba en HW y log; no se acumulan cambios.
 mal TEST/SERVICE puede dejar al usuario sin test menu (el mini menu siempre tiene `Test menu`, sin depender del
 mapa); persistir el nombre de boton, no el numero; el decode de freeplay puede ser mas largo de lo previsto.
 
+### F10. Estado 2026-11-14 (post-prueba HW)
+
+**Lo que ya funciona en PS3:** el juego arranca y renderiza; A/B/C/D/E, START y moneda responden;
+2 jugadores juegan; All Bosses, Same Chars y LDM Any funcionan.
+
+**Cambios de esta corrida (compilados y subidos por FTP, sin reinstalar el PKG):**
+
+1. **TEST/SERVICE**: el hold de TEST se contaba en sondeos del pad, no en frames. El juego puede tardar
+   segundos en mirar el interruptor, así que el hold expiraba antes. Ahora se cuenta por vblank
+   (`aw_input_test_tick()` desde `aw_cheats_vblank`) y dura **900 frames (15 s)** tanto en el arranque
+   con R1 desde la pantalla AW como en la fila `Test menu` del mini menú.
+2. **BOTONES a dos columnas**: `ps3_aw_remap.cpp` dibuja P1 y P2 en la misma pantalla, cada uno con su
+   cursor y su pad. Los dos pueden remapear a la vez; X captura en el pad de ese jugador, O guarda,
+   SELECT cancela la captura (SELECT no está en el mapa, así que no compite con ningún botón).
+   Triángulo alterna `A-E/START/COIN` y `direcciones/SERVICE/TEST/BACK`.
+3. **Cheats nuevos** (`ps3_aw_cheats.cpp`, mismas direcciones que el recomp): `P1/P2 Health`
+   (OFF/INFINITE/ONE HIT), `P1/P2 Power` (gauge de super), `P1/P2 Skill` (gauge de tag), `Round Time`
+   (0 = off, 1..98 s) y `Time Stop` (bit 0x10 de `0x8C35AB38`). Los bits propios se limpian al apagar,
+   así que apagar un cheat ya no deja el flag pegado.
+4. **Mad Gear**: `ax3201p01.fmem1.dec` descifrado con `0xd3` subido a
+   `/dev_hdd0/game/NOTDCAW01/USRDIR/aw/kofxi_madgear/` y descriptor
+   `/dev_hdd0/game/NOTDCAW01/USRDIR/discs/madgear.aw` (reusa los 7 `.mrom*.dec` de `aw/kofxi/roms`).
+   Debe salir como segunda fila, `THE KING OF FIGHTERS XI - MAD GEAR`, en la pantalla AW.
+
+**Si TEST sigue sin abrir el menú:** el siguiente paso no es adivinar más botones. Hay que capturar el
+`GetCondition` que ve el juego (log `[awpad] P1 kcode`) durante los primeros 15 s y compararlo con
+`--press test@120` del recomp, que sí abre el menú. Si el bit 14 llega pero el juego no lo mira, la vía
+es el `testPC`/flag de arranque del ejecutable (`0x6C` del header, `0x8C010000`) o el registro de
+`SXA_CREDIT_CONF` de la flash, no el mando.
+
 ## 4. Archivos previstos
 
 | Archivo | Funcion |

@@ -621,6 +621,14 @@ static const CfgItem s_items[] = {
 	{ "AwAllBosses",   &g_aw_all_bosses },
 	{ "AwSameChars",   &g_aw_same_chars },
 	{ "AwLdmAny",      &g_aw_ldm_any },
+	{ "AwHealth1",     &g_aw_health[0] },
+	{ "AwHealth2",     &g_aw_health[1] },
+	{ "AwPower1",      &g_aw_power[0] },
+	{ "AwPower2",      &g_aw_power[1] },
+	{ "AwSkill1",      &g_aw_skill[0] },
+	{ "AwSkill2",      &g_aw_skill[1] },
+	{ "AwRoundTime",   &g_aw_round_time },
+	{ "AwTimeStop",    &g_aw_time_stop },
 };
 
 // P120 (row Config Repair): an install keeps NotDC-AW.cfg, so each revision puts its fatal keys back at today's default
