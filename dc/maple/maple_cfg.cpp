@@ -81,9 +81,11 @@ struct MapleConfigMap : IMapleConfigMap
 		if (!pjs)
 			return;
 
-		// kcode is active-low; bits 0, 8 and 11-15 (0xF901) are reserved by the Maple
-		// protocol, so they are forced to read as "not pressed".
-		pjs->kcode = kcode[dev->bus_id] | 0xF901;
+		// kcode is active-low; the DC controller reserves bits 0, 8 and 11-15 (0xF901).
+		// The AW pad uses C/D and DPAD2 for E/SERVICE/TEST, so those bits must pass through.
+		pjs->kcode = kcode[dev->bus_id];
+		if (!aw_pending())
+			pjs->kcode |= 0xF901;
 
 		pjs->joy[PJAI_X1] = SignedToByte(joyx[dev->bus_id]);
 		pjs->joy[PJAI_Y1] = SignedToByte(joyy[dev->bus_id]);
